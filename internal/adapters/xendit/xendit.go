@@ -225,6 +225,13 @@ func (a *Adapter) ParseWebhook(_ context.Context, r *http.Request) ([]gateway.We
 // doJSON sends a JSON request and decodes the JSON response. A nil body sends no
 // request body (used for GET). Non-2xx HTTP responses are surfaced as errors.
 func (a *Adapter) doJSON(ctx context.Context, method, url string, body map[string]any, out any) error {
+	return a.doJSONWithHeaders(ctx, method, url, body, nil, out)
+}
+
+// doJSONWithHeaders is doJSON plus per-call headers, needed because some Xendit
+// APIs (the QR Codes API) require an explicit api-version header that the
+// Invoice API does not.
+func (a *Adapter) doJSONWithHeaders(ctx context.Context, method, url string, body map[string]any, headers map[string]string, out any) error {
 	var reqBody io.Reader
 	if body != nil {
 		buf, err := json.Marshal(body)
@@ -240,6 +247,9 @@ func (a *Adapter) doJSON(ctx context.Context, method, url string, body map[strin
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", a.authHeader())
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {

@@ -91,6 +91,7 @@ type PaymentResult struct {
 	NextAction       *stripe.PaymentIntentNextAction // redirect_to_url for VA/QRIS/ewallet/hosted
 	ExpiresAt        int64                           // unix seconds (VA/QRIS expire)
 	Routing          *RoutingInfo                    // how the gateway was chosen; nil for direct (non-orchestrated) adapters
+	Display          *DisplayInstructions            // instrument to render ourselves; nil for hosted-redirect results
 	Raw              any                             // gateway payload, debugging only
 }
 
@@ -122,6 +123,79 @@ type RoutingInfo struct {
 	Basis    RoutingBasis // why this gateway won
 	FeeMinor float64      // computed fee in minor units; meaningful only when Basis is RoutingLeastCost
 	Compared int          // number of candidates that produced a real fee quote
+}
+
+// --- Direct instrument issuance --------------------------------------------
+//
+// The Gateway interface above creates payments through each provider's HOSTED
+// page (Midtrans Snap, Xendit Invoice, DOKU Checkout, Mayar payment link). Those
+// endpoints return only a redirect URL: the customer chooses a method on the
+// provider's site, and the instrument (VA number, QR payload) is issued there,
+// after the fact. Nothing in a hosted response can be rendered by us.
+//
+// InstrumentGateway is the opposite: it asks the provider to issue a specific
+// instrument up front so PayRouter can display it on its own page. That keeps
+// checkout consistent no matter which gateway least-cost routing selects, and it
+// requires the caller to have already chosen a payment method — which is also
+// what lets the router price a real channel instead of falling back.
+//
+// It is an OPTIONAL capability, declared the same way as SubscriptionGateway:
+// adapters that cannot issue an instrument for a method simply return
+// ErrInstrumentUnsupported and the caller falls back to the hosted redirect.
+
+// ErrInstrumentUnsupported is returned by IssueInstrument when an adapter cannot
+// issue the requested method directly. It is not a failure — callers treat it as
+// "fall back to the hosted checkout page for this one".
+var ErrInstrumentUnsupported = errors.New("gateway: direct instrument issuance not supported for this method")
+
+// InstrumentGateway is implemented by adapters that can issue a payment
+// instrument directly, without sending the customer to a hosted page.
+type InstrumentGateway interface {
+	// IssueInstrument creates a payment and returns the instrument to display.
+	// The payment method type in the input is REQUIRED and must be concrete
+	// (IDQRIS, IDVirtualAccount, ...) — IDHosted is meaningless here.
+	IssueInstrument(ctx context.Context, in *CreatePaymentInput) (*PaymentResult, error)
+
+	// SupportsInstrument reports whether this adapter can issue the given method
+	// directly, so a caller can filter candidates before attempting a charge.
+	SupportsInstrument(method IDPaymentMethodType) bool
+}
+
+// InstrumentKind discriminates the populated variant of DisplayInstructions.
+type InstrumentKind string
+
+const (
+	InstrumentQRIS           InstrumentKind = "qris"
+	InstrumentVirtualAccount InstrumentKind = "virtual_account"
+)
+
+// DisplayInstructions carries everything needed to render a payment instrument
+// on our own checkout page. Exactly one variant is populated, per Kind.
+type DisplayInstructions struct {
+	Kind           InstrumentKind
+	QRIS           *QRISInstruction
+	VirtualAccount *VirtualAccountInstruction
+	ExpiresAt      int64 // unix seconds; 0 when the provider states no expiry
+}
+
+// QRISInstruction is a QRIS payment to display.
+//
+// Payload and ImageURL are BOTH optional individually but at least one is always
+// set, because providers differ in what they hand back: Xendit and Midtrans
+// return the raw EMVCo payload string (which we can render into a QR ourselves,
+// at any size, and offer as copyable text), while Mayar returns only a URL to a
+// pre-rendered image. Renderers must therefore prefer Payload and fall back to
+// ImageURL rather than assuming either is present.
+type QRISInstruction struct {
+	Payload  string // raw EMVCo QR string, e.g. "00020101021226..."; "" if provider gives image only
+	ImageURL string // provider-hosted QR image; "" when Payload is available
+}
+
+// VirtualAccountInstruction is a bank transfer destination to display.
+type VirtualAccountInstruction struct {
+	Bank          string // normalized lowercase bank code, e.g. "bca", "bni", "bri", "permata", "mandiri"
+	AccountNumber string // the VA number the customer transfers to
+	AccountName   string // display name on the account, when the provider supplies one
 }
 
 // RefundInput describes a refund to issue.
