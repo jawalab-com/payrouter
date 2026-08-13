@@ -141,7 +141,7 @@ func (d *Deliverer) deliverPayload(payload []byte) (bool, string) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Stripe-Signature", Sign(payload, d.secret, d.now()))
-	req.Header.Set("User-Agent", "stripe-compatible-facade/1.0")
+	req.Header.Set("User-Agent", "payrouter/1.0")
 	resp, err := d.client.Do(req)
 	if err != nil {
 		return false, err.Error()

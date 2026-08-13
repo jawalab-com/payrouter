@@ -1,7 +1,7 @@
 // Package mayar implements gateway.Gateway for Mayar.id, using the Headless API
 // (a hosted payment link, used to create a payment and get a redirect URL). It is
 // the ONLY Mayar-aware code. Endpoints and the verification pattern are verified
-// against Mayar's official docs — see plans.md §4.4.
+// against Mayar's official docs.
 //
 // Two BYO credentials are used: the API Key (Bearer auth for API calls) and a
 // shared Webhook Token (constant-time compared against the ?token= query param

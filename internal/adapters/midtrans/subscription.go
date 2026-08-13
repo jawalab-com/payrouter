@@ -96,7 +96,7 @@ func (a *Adapter) ActivateSubscription(ctx context.Context, in *gateway.Activate
 	maxInterval := in.MaxInterval
 	if maxInterval <= 0 {
 		// Midtrans has no true infinite schedule; use a large cap. Recreate-on-
-		// expiry is a future enhancement (documented in plans.md).
+		// expiry is a future enhancement.
 		maxInterval = 999
 	}
 	schedule := map[string]any{

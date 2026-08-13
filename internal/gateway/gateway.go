@@ -1,6 +1,6 @@
 // Package gateway defines the adapter seam between the Stripe-compatible facade
 // and the underlying Indonesian payment gateways. It is the ONLY gateway-aware
-// code; everything else speaks Stripe's domain. See plans.md §3.
+// code; everything else speaks Stripe's domain.
 package gateway
 
 import (
@@ -49,7 +49,7 @@ type Gateway interface {
 }
 
 // IDPaymentMethodType is our documented extension of Stripe's payment method
-// types for Indonesian methods (see plans.md §5).
+// types for Indonesian methods (see COMPATIBILITY.md).
 type IDPaymentMethodType string
 
 const (
@@ -83,7 +83,7 @@ type Customer struct {
 
 // PaymentResult is the gateway's outcome, normalized to Stripe-domain terms.
 // Status reuses stripe-go's canonical PaymentIntentStatus so values never drift
-// from Stripe's (see plans.md §4).
+// from Stripe's.
 type PaymentResult struct {
 	Reference        string                          // pi_...
 	GatewayReference string                          // gateway transaction id

@@ -8,11 +8,11 @@
 *.dll
 *.so
 *.dylib
-facade
+/payrouter
 
 # Test artifacts & coverage reports
-coverage.out
-coverage.html
+coverage
+coverage.*
 test_report.json
 *.log
 

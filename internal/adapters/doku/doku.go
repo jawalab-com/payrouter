@@ -1,7 +1,7 @@
 // Package doku implements gateway.Gateway for DOKU, using the Checkout API (a
 // hosted payment page, used to create a payment and get a redirect URL). It is
 // the ONLY DOKU-aware code. Endpoints and the signature algorithm are verified
-// against DOKU's official docs — see plans.md §4.3.
+// against DOKU's official docs.
 //
 // DOKU authenticates every request with a per-call HMAC-SHA256 signature built
 // from a canonical string of headers plus a base64 SHA-256 body digest. Two BYO

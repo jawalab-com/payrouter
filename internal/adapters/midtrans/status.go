@@ -5,7 +5,7 @@ import (
 )
 
 // mapStatus translates a Midtrans transaction_status (with its optional
-// fraud_status) into a canonical Stripe PaymentIntentStatus. See plans.md §4.1.
+// fraud_status) into a canonical Stripe PaymentIntentStatus.
 //
 // Midtrans success rule (per their webhook docs): a transaction is successful
 // when transaction_status is "settlement", or "capture" with fraud_status

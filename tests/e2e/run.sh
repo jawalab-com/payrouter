@@ -14,7 +14,7 @@ BASE_URL="${PAYMENT_BASE_URL:-http://localhost:8787}"
 API_KEY="${PAYMENT_API_KEY:-sk_test_local_vamios}"
 GATEWAY="${PAYMENT_GATEWAY:-stub}"
 
-printf 'stripe-compatible-facade E2E\n'
+printf 'payrouter E2E\n'
 printf 'Target: %s (gateway=%s)\n' "$BASE_URL" "$GATEWAY"
 
 source "$SCRIPT_DIR/scenarios/health.sh"

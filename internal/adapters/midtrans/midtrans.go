@@ -3,7 +3,7 @@
 // with the Core API v2 (status + refund). It is the ONLY Midtrans-aware code:
 // it accepts Stripe-domain inputs from the facade, calls Midtrans, and returns
 // Stripe-domain results. Endpoints and the signature algorithm are verified
-// against Midtrans' official docs — see plans.md §4.1.
+// against Midtrans' official docs.
 //
 // Sandbox vs production is selected by MIDTRANS_SANDBOX (true by default).
 package midtrans

@@ -3,7 +3,7 @@
 // create + status and the /refunds endpoint for refunds. It is the ONLY
 // Xendit-aware code: it accepts Stripe-domain inputs from the facade, calls
 // Xendit, and returns Stripe-domain results. Endpoints and the verification
-// method are verified against Xendit's official docs — see plans.md §4.2.
+// method are verified against Xendit's official docs.
 //
 // Two BYO credentials are used: the merchant Secret API Key (Basic auth for API
 // calls) and the merchant Webhook Verification Token (constant-time compared

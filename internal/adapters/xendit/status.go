@@ -7,7 +7,7 @@ import (
 )
 
 // mapStatus translates a Xendit Invoice status into a canonical Stripe
-// PaymentIntentStatus. See plans.md §4.2.
+// PaymentIntentStatus.
 //
 // Xendit Invoice statuses (verified from Xendit's InvoiceStatus enum):
 //   - PENDING: created, awaiting payment

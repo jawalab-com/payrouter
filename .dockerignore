@@ -1,0 +1,34 @@
+# The Dockerfile does `COPY . .`, so anything not excluded here is uploaded into
+# the build context and can end up in an image layer. config.yaml is deliberately
+# NOT excluded — the image ships it as the orchestrator fee schedule.
+
+# VCS
+.git
+.gitignore
+.github
+
+# Local secrets — never into a build context
+.env
+.env.local
+
+# Build outputs & test artifacts
+/payrouter
+*.exe
+coverage
+coverage.*
+test_report.json
+*.log
+
+# Docs and shell-based tests: not needed to compile the binary
+*.md
+tests/
+.dockerignore
+Dockerfile
+
+# Editor state
+.vscode/
+.idea/
+*.swp
+*~
+tmp/
+scratch/
