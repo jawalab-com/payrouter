@@ -15,6 +15,15 @@ import (
 // this leaves generous headroom while bounding memory per request.
 const DefaultMaxBodyBytes int64 = 1 << 20
 
+// Default per-caller rate limits. Generous enough that ordinary merchant traffic
+// never notices, low enough to blunt credential stuffing and runaway retry loops.
+// The limit is per instance and per caller — set PAYMENT_RATE_LIMIT_RPS=0 to
+// disable when an upstream gateway or load balancer already enforces quotas.
+const (
+	DefaultRateLimitRPS   float64 = 50
+	DefaultRateLimitBurst float64 = 100
+)
+
 // Config holds runtime configuration.
 type Config struct {
 	AppEnv        string // development | production
@@ -25,11 +34,19 @@ type Config struct {
 	DatabaseURL   string // when non-empty, the facade runs against PostgreSQL (durable); empty => in-memory (tests/dev)
 	MaxBodyBytes  int64  // per-request body ceiling; 0 => DefaultMaxBodyBytes
 	ConfigPath    string // path to the orchestrator fee schedule (config.yaml)
-	Midtrans      MidtransConfig
-	Xendit        XenditConfig
-	Doku          DokuConfig
-	Mayar         MayarConfig
-	Webhook       WebhookConfig
+
+	// HTTP edge controls. Rate limiting is per-instance and per-caller (API key
+	// when presented, client IP otherwise); 0 rps disables it. CORS is off unless
+	// origins are listed, and only exact origins are ever allowed.
+	RateLimitRPS      float64
+	RateLimitBurst    float64
+	CORSOrigins       []string
+	TrustProxyHeaders bool // honor X-Forwarded-For / X-Real-Ip; only true behind a proxy you control
+	Midtrans          MidtransConfig
+	Xendit            XenditConfig
+	Doku              DokuConfig
+	Mayar             MayarConfig
+	Webhook           WebhookConfig
 }
 
 // WebhookConfig holds the outbound webhook (re-sign + deliver) settings.
@@ -86,6 +103,32 @@ func getenv(key, defaultVal string) string {
 	return defaultVal
 }
 
+// getenvFloat reads a non-negative float from the environment, falling back to
+// defaultVal when unset or unparseable. Zero is a meaningful value (it disables
+// rate limiting) so it is preserved rather than treated as absent.
+func getenvFloat(key string, defaultVal float64) float64 {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultVal
+	}
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil || v < 0 {
+		return defaultVal
+	}
+	return v
+}
+
+// splitList parses a comma-separated env value into trimmed, non-empty entries.
+func splitList(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // getenvInt64 reads a positive int64 from the environment, falling back to
 // defaultVal when unset, unparseable, or non-positive.
 func getenvInt64(key string, defaultVal int64) int64 {
@@ -106,6 +149,11 @@ func Load() (Config, error) {
 		DatabaseURL:   strings.TrimSpace(os.Getenv("PAYMENT_DATABASE_URL")),
 		MaxBodyBytes:  getenvInt64("PAYMENT_MAX_BODY_BYTES", DefaultMaxBodyBytes),
 		ConfigPath:    getenv("PAYMENT_CONFIG_PATH", "config.yaml"),
+
+		RateLimitRPS:      getenvFloat("PAYMENT_RATE_LIMIT_RPS", DefaultRateLimitRPS),
+		RateLimitBurst:    getenvFloat("PAYMENT_RATE_LIMIT_BURST", DefaultRateLimitBurst),
+		CORSOrigins:       splitList(os.Getenv("PAYMENT_CORS_ORIGINS")),
+		TrustProxyHeaders: os.Getenv("PAYMENT_TRUST_PROXY_HEADERS") == "true",
 		Midtrans: MidtransConfig{
 			ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
 			Sandbox:   getenv("MIDTRANS_SANDBOX", "true") != "false", // sandbox unless explicitly "false"

@@ -26,10 +26,11 @@ import (
 
 // Server is the Stripe-compatible facade HTTP handler.
 type Server struct {
-	cfg   config.Config
-	store store.Store
-	gw    gateway.Gateway
-	mux   *http.ServeMux
+	cfg     config.Config
+	store   store.Store
+	gw      gateway.Gateway
+	mux     *http.ServeMux
+	handler http.Handler // mux wrapped in the middleware chain; see buildChain
 
 	// Durable capabilities, resolved from the store in New. They are nil when the
 	// store is the in-memory *store.Memory; in that case the legacy code paths run
@@ -54,7 +55,48 @@ func New(cfg config.Config, st store.Store, gw gateway.Gateway) *Server {
 	s.inbound, _ = st.(store.InboundStore)
 	s.outbound, _ = st.(store.OutboundStore)
 	s.routes()
+	s.handler = s.buildChain()
 	return s
+}
+
+// buildChain composes the cross-cutting middleware in front of the router.
+//
+// Order is deliberate and outermost-first:
+//
+//	request id   — so every line below can be correlated, including panics
+//	access log   — outside recovery, so a recovered 500 is still logged
+//	recovery     — converts a panic into a Stripe-shaped 500
+//	CORS         — answers preflights before auth can reject them
+//	rate limit   — sheds load before any handler work or DB round trip
+//	body limit   — caps the body before anything reads it
+func (s *Server) buildChain() http.Handler {
+	var h http.Handler = s.mux
+	h = s.limitBody(h)
+	if s.cfg.RateLimitRPS > 0 {
+		burst := s.cfg.RateLimitBurst
+		if burst <= 0 {
+			burst = s.cfg.RateLimitRPS
+		}
+		h = newRateLimiter(s.cfg.RateLimitRPS, burst).middleware(s.cfg.TrustProxyHeaders)(h)
+	}
+	h = cors(s.cfg.CORSOrigins)(h)
+	h = recoverPanics(h)
+	h = accessLog(h)
+	h = withRequestID(h)
+	return h
+}
+
+// limitBody caps every request body before a handler can read it. Without it the
+// idempotency middleware's io.ReadAll and each handler's ParseForm would read an
+// attacker-controlled body into memory with no ceiling. The cap applies to
+// gateway callbacks too, which are unauthenticated by design.
+func (s *Server) limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes())
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) routes() {
@@ -98,17 +140,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/invoices/{id}", s.auth(s.retrieveInvoice))
 }
 
-// ServeHTTP implements http.Handler.
-//
-// Every request body is capped before it reaches a handler. Without this, the
-// idempotency middleware's io.ReadAll and each handler's ParseForm would read an
-// attacker-controlled body into memory with no ceiling. The cap applies to
-// gateway callbacks too, which are unauthenticated by design.
+// ServeHTTP implements http.Handler, serving through the middleware chain built
+// in New.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Body != nil {
-		r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes())
-	}
-	s.mux.ServeHTTP(w, r)
+	s.handler.ServeHTTP(w, r)
 }
 
 // maxBodyBytes is the per-request body ceiling, from config with a safe default.

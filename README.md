@@ -18,6 +18,26 @@ Existing frontend applications, mobile apps, and backend services built with off
 
 ---
 
+## 🛡️ HTTP edge behavior
+
+Every request passes through a small stdlib middleware chain before reaching a
+handler — no web framework, no added dependencies:
+
+| Concern | Behavior |
+| :--- | :--- |
+| **Request ID** | Assigned per request and returned as `X-Request-Id`. An inbound value is honored (sanitized) so calls can be traced across a proxy. Quote it when reporting an issue. |
+| **Access log** | One structured line per request: method, path, status, bytes, duration, IP. Bodies and `Authorization` are never logged. |
+| **Panic recovery** | A handler panic becomes a Stripe-shaped `500` with the stack logged against the request ID, instead of a dropped connection. |
+| **Body cap** | `PAYMENT_MAX_BODY_BYTES` (default 1 MiB), answered `413`. Applies to unauthenticated gateway callbacks too. |
+| **Rate limit** | Token bucket per API key, or per client IP when unauthenticated. `429` with `Retry-After`. Per instance — N replicas allow N× the limit. |
+| **CORS** | Off unless `PAYMENT_CORS_ORIGINS` lists exact origins. Never emits a wildcard. |
+
+Behind a load balancer, set `PAYMENT_TRUST_PROXY_HEADERS=true` so rate limiting
+sees real client IPs. Leave it `false` otherwise — clients could otherwise spoof
+`X-Forwarded-For` and choose their own bucket.
+
+---
+
 ## 🗄️ Storage modes
 
 PayRouter runs against an in-memory store by default and PostgreSQL when
@@ -102,6 +122,10 @@ PAYMENT_GATEWAY=auto  # Options: auto (least-cost), midtrans, xendit, doku, maya
 PAYMENT_CONFIG_PATH=./config.yaml
 PAYMENT_APP_ENV=development       # "production" requires PAYMENT_DATABASE_URL + WEBHOOK_SIGNING_SECRET
 PAYMENT_MAX_BODY_BYTES=1048576    # per-request body cap (default 1 MiB); oversized requests get HTTP 413
+PAYMENT_RATE_LIMIT_RPS=50         # per-caller rate limit; 0 disables
+PAYMENT_RATE_LIMIT_BURST=100
+PAYMENT_TRUST_PROXY_HEADERS=false # only true behind a proxy you control
+# PAYMENT_CORS_ORIGINS=https://shop.example.com   # exact origins only; empty = CORS off
 
 # Durable storage (REQUIRED in production — see "Storage modes")
 PAYMENT_DATABASE_URL=postgres://user:pass@host:5432/payrouter?sslmode=require
