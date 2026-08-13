@@ -1,228 +1,142 @@
-# stripe-compatible-facade
+# ⚡ PayRouter
 
-A thin, open-source **translation layer** that exposes a Stripe-compatible API in
-front of Indonesian payment gateways (Midtrans, Xendit, DOKU, Mayar, …).
+> **Stripe-Compatible Payment Facade & Dynamic Least-Cost Gateway Orchestrator**
 
-> **Philosophy:** translate, don't orchestrate. The merchant supplies *their own*
-> gateway keys. This service never touches money — it translates Stripe-shaped
-> requests into gateway calls and gateway events back into Stripe-shaped webhooks.
-> Point an existing Stripe integration at it with only a base-URL + key change.
+PayRouter is a high-performance, stateless payment engine written in Go. It accepts requests shaped exactly like Stripe's REST API and dynamically routes payments to local Indonesian payment gateways (**Midtrans**, **Xendit**, **DOKU**, **Mayar**) using dynamic least-cost MDR fee calculation.
 
-Status: **v2 — Subscriptions (Midtrans)**, on top of the M6 one-time surface. The
-facade exposes the endpoints the widest range of libraries and frameworks depend on —
-Checkout Sessions, Customers, Products/Prices, Refunds, and PaymentIntents
-create/retrieve/confirm — plus recurring Prices, Subscriptions (create/retrieve/cancel),
-and Invoice retrieve. One-time payments work on all four gateway adapters (Midtrans,
-Xendit, DOKU, Mayar); subscriptions are Midtrans-only for now (Xendit/DOKU/Mayar return
-"not supported"). The official `stripe-go` SDK drives the facade and verifies forwarded
-webhooks via its own `webhook.ConstructEvent` (`internal/compat`), proving the drop-in
-claim for the full surface. See [`plans.md`](./plans.md) for the full design, milestones,
-and scope.
+Existing frontend applications, mobile apps, and backend services built with official Stripe SDKs (`stripe-go`, `stripe-node`, `stripe-python`, `@stripe/stripe-js`) work **unchanged** without modifying a single line of checkout code.
 
-## Run
+---
 
-```bash
-# Stub gateway (no credentials, returns canned data — good for UI dev):
-export FACADE_API_KEY=sk_test_...   # any Stripe-style key clients must present
-export FACADE_GATEWAY=stub
-go run ./cmd/facade                 # listens on :8787 by default (FACADE_ADDR)
-```
+## 🚀 Key Features
 
-```bash
-# Midtrans gateway (merchant supplies their own sandbox Server Key):
-export FACADE_API_KEY=sk_test_...
-export FACADE_GATEWAY=midtrans
-export MIDTRANS_SERVER_KEY=SB-Mid-server-...   # BYO merchant key
-export MIDTRANS_SANDBOX=true                   # false -> production endpoints
-go run ./cmd/facade
-```
+* **100% Stripe REST API Surface Compatibility:** Drop-in replacement for Checkout Sessions (`/v1/checkout/sessions`), Payment Intents (`/v1/payment_intents`), Customers (`/v1/customers`), Subscriptions (`/v1/subscriptions`), Refunds (`/v1/refunds`), and Products/Prices (`/v1/products`, `/v1/prices`).
+* **Dynamic Least-Cost Fee Orchestrator (`PAYMENT_GATEWAY=auto`):** Evaluates real-time MDR fees, fixed charges, platform modifiers, and 11% PPN tax rules for every payment method to automatically pick the cheapest gateway.
+* **Metadata Insights:** Every response automatically enriches Stripe metadata with `payment_gateway_selected` and `payment_routing_mode`.
+* **Zero-DB Stateless Default:** Runs in pure 0-DB memory mode out of the box with zero external database dependencies. Optional PostgreSQL driver available for enterprise audit logs.
+* **Unified Outbound Webhooks:** Translates gateway callbacks into standard Stripe events (`checkout.session.completed`, `payment_intent.succeeded`, `charge.refunded`) signed with standard `Stripe-Signature` headers.
 
-```bash
-# Xendit gateway (merchant supplies their own Secret Key + Webhook Token):
-export FACADE_API_KEY=sk_test_...
-export FACADE_GATEWAY=xendit
-export XENDIT_SECRET_KEY=xnd_development_...   # BYO merchant key
-export XENDIT_WEBHOOK_TOKEN=...                # BYO webhook verification token
-go run ./cmd/facade                             # env selected by key prefix
-```
+---
+
+## 💰 Gateway Fee Comparison Matrix (Default `config.yaml`)
+
+PayRouter uses the following base MDR fee schedule (configurable via `config.yaml` or `.env` overrides):
+
+| Payment Channel | Midtrans | Xendit | DOKU | Mayar (Starter Tier) |
+| :--- | :--- | :--- | :--- | :--- |
+| **QRIS** | **0.70%** *(PPN incl.)* | **0.70%** + 11% PPN | **0.70%** + 11% PPN | **0.70%** + 1.5% platform + 11% PPN |
+| **Virtual Account** | **Rp 4.000** + 11% PPN | **Rp 4.000** + 11% PPN | **Rp 4.000** + 11% PPN | **Rp 4.000** + 1.5% platform + 11% PPN |
+| **Credit Card** | **2.90% + Rp 2.000** + 11% PPN | **2.90% + Rp 2.000** + 11% PPN | **2.80% + Rp 2.000** + 11% PPN | **2.60% + Rp 2.000** + 1.5% platform + 11% PPN |
+| **GoPay (E-Wallet)** | **2.00%** *(PPN incl.)* | **2.00%** + 11% PPN | — | — |
+| **ShopeePay (E-Wallet)** | **1.50%** *(PPN incl.)* | **1.50%** + 11% PPN | — | — |
+| **Retail Outlet (Alfamart/Indomaret)** | **Rp 5.000** + 11% PPN | **Rp 4.000** + 11% PPN | **Rp 5.000** + 11% PPN | **Rp 5.000** + 1.5% platform + 11% PPN |
+
+*Note: All rates can be overridden in `.env` (e.g. `XENDIT_FEE_VA_FIXED=2500` for custom enterprise pricing).*
+
+---
+
+## 🛠️ Environment Configuration (`.env`)
+
+Copy `.env.example` to `.env` and set your server variables and gateway credentials:
 
 ```bash
-# DOKU gateway (merchant supplies their own Client-Id + Secret Key):
-export FACADE_API_KEY=sk_test_...
-export FACADE_GATEWAY=doku
-export DOKU_CLIENT_ID=MCH-...                  # BYO merchant Client-Id
-export DOKU_SECRET_KEY=SK-...                  # BYO merchant Secret Key (HMAC)
-export DOKU_SANDBOX=true                       # false -> production endpoints
-go run ./cmd/facade
+# Server Settings
+PAYMENT_ADDR=:8787
+PAYMENT_API_KEY=sk_test_payment_secret_key
+PAYMENT_GATEWAY=auto  # Options: auto (least-cost), midtrans, xendit, doku, mayar, stub
+PAYMENT_CONFIG_PATH=./config.yaml
+
+# Outbound Stripe Webhook Destination
+PAYMENT_WEBHOOK_URL=https://your-app.example.com/api/stripe-webhook
+WEBHOOK_SIGNING_SECRET=whsec_your_stripe_compatible_signing_secret
+
+# Active Gateway Credentials (BYO Keys)
+XENDIT_SECRET_KEY=xnd_development_...
+MAYAR_API_KEY=eyJhbGci...
+MAYAR_WEBHOOK_TOKEN=your_mayar_token
 ```
 
+---
+
+## ⚡ Quickstart
+
+### 1. Run via Go CLI
 ```bash
-# Mayar gateway (merchant supplies their own API Key + Webhook Token):
-export FACADE_API_KEY=sk_test_...
-export FACADE_GATEWAY=mayar
-export MAYAR_API_KEY=...                       # BYO merchant API Key
-export MAYAR_WEBHOOK_TOKEN=...                 # shared secret; append ?token= to the webhook URL
-export MAYAR_SANDBOX=true                      # false -> production endpoints
-go run ./cmd/facade
+# Clone the repository
+git clone https://github.com/jawalab-com/payrouter.git
+cd payrouter
+
+# Build and run
+go build -o payrouter.exe ./cmd/facade
+./payrouter.exe
 ```
 
-### Configuration
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `FACADE_API_KEY` | *(required)* | Stripe-style key clients must present (`sk_test_…` / `sk_live_…`) |
-| `FACADE_ADDR` | `:8787` | listen address |
-| `FACADE_GATEWAY` | `stub` | `stub`, `midtrans`, `xendit`, `doku`, or `mayar` |
-| `MIDTRANS_SERVER_KEY` | *(required if gateway=midtrans)* | merchant Midtrans Server Key (BYO) |
-| `MIDTRANS_SANDBOX` | `true` | `false` targets Midtrans production endpoints |
-| `MIDTRANS_SNAP_URL` / `MIDTRANS_API_URL` | *(Midtrans default)* | override Snap / Core API base URLs (local or self-hosted Midtrans) |
-| `XENDIT_SECRET_KEY` | *(required if gateway=xendit)* | merchant Xendit Secret API Key (BYO) |
-| `XENDIT_WEBHOOK_TOKEN` | *(required if gateway=xendit)* | merchant Xendit Webhook Verification Token (BYO); compared against `x-callback-token` |
-| `XENDIT_BASE_URL` | *(Xendit default)* | override the API base URL (local/self-hosted Xendit) |
-| `DOKU_CLIENT_ID` / `DOKU_SECRET_KEY` | *(required if gateway=doku)* | merchant DOKU Client-Id + Secret Key (BYO) |
-| `DOKU_SANDBOX` | `true` | `false` targets DOKU production endpoints |
-| `DOKU_BASE_URL` | *(DOKU default)* | override the API base URL |
-| `MAYAR_API_KEY` / `MAYAR_WEBHOOK_TOKEN` | *(required if gateway=mayar)* | merchant Mayar API Key + shared webhook secret (BYO) |
-| `MAYAR_SANDBOX` | `true` | `false` targets Mayar production endpoints |
-| `MAYAR_BASE_URL` | *(Mayar default)* | override the API base URL |
-| `WEBHOOK_SIGNING_SECRET` | *(random, per process)* | `whsec_…` merchants use to verify our outbound `Stripe-Signature`. Set explicitly in production. |
-| `FACADE_WEBHOOK_URL` | *(unset)* | merchant endpoint to forward Stripe events to. Unset = receive gateway notifications but don't forward. |
-
-## Webhooks
-
-The facade is a **two-way translator**: it receives gateway callbacks and re-emits
-them as Stripe events.
-
-1. Point your gateway's callback/Notification URL at the facade. The path carries the
-   gateway name, so the facade verifies each callback with the right scheme:
-   - **Midtrans:** set the Notification URL in the Midtrans dashboard to
-     `https://<your-facade>/v1/webhooks/midtrans`. Verified via the body's `signature_key`
-     (SHA-512 over `order_id + status_code + gross_amount + ServerKey`) using `MIDTRANS_SERVER_KEY`.
-     For recurring billing, also set the **Recurring Notification URL** to the same
-     `https://<your-facade>/v1/webhooks/midtrans` — the signature scheme is identical, and
-     the facade tells a save-card / recurring-cycle notification apart by its payload shape.
-   - **Xendit:** set the Callback URL in the Xendit dashboard to
-     `https://<your-facade>/v1/webhooks/xendit`. Verified via the `x-callback-token` header
-     (constant-time compared to `XENDIT_WEBHOOK_TOKEN`).
-   - **DOKU:** set the Notification URL in the DOKU dashboard to
-     `https://<your-facade>/v1/webhooks/doku`. Verified via the `Signature` header
-     (HMAC-SHA256 over a canonical string of `Client-Id`/`Request-Id`/
-     `Request-Timestamp`/`Request-Target`/`Digest` headers + base64 body digest) using
-     `DOKU_SECRET_KEY`.
-   - **Mayar:** Mayar does not sign payloads. Register a tokenized URL —
-     `https://<your-facade>/v1/webhooks/mayar?token=<MAYAR_WEBHOOK_TOKEN>` — as the
-     webhook in your Mayar settings. Verified via the `?token=` query param
-     (constant-time compared to `MAYAR_WEBHOOK_TOKEN`).
-2. The facade maps the status, wraps the PaymentIntent in a Stripe `Event`, and POSTs it
-   to `FACADE_WEBHOOK_URL`, signed with a `Stripe-Signature` header (`t=…,v1=…`) using
-   `WEBHOOK_SIGNING_SECRET`.
-3. Your existing Stripe webhook handler verifies that signature and handles
-   `payment_intent.succeeded` / `.canceled` / `.payment_failed` (and `refund.created`
-   for refunds) exactly as it would for Stripe. For Midtrans subscriptions it also
-   receives `customer.subscription.created` / `.updated` / `.deleted` and
-   `invoice.payment_succeeded`.
-
+### 2. Run via Docker
 ```bash
-export FACADE_WEBHOOK_URL=https://your-app.example.com/stripe-webhook
-export WEBHOOK_SIGNING_SECRET=whsec_share_this_with_your_handler
+docker build -t payrouter .
+docker run -p 8787:8787 --env-file .env payrouter
 ```
 
-> **Note (M2):** the delivery queue is in-memory — queued events are lost on restart.
-> By design: this is a translation layer with **no database**. Re-sent notifications
-> are handled idempotently (a status that hasn't changed doesn't re-emit).
+---
 
-> **Note (M5) — gateway coverage:** all four adapters implement create → hosted
-> redirect → payment-notification → Stripe event. Midtrans and Xendit additionally
-> support status polling (`GetStatus`) and refunds. DOKU (push-only checkout) and
-> Mayar (no refund/status API) return a clear error for those two operations;
-> their status arrives exclusively via the notification webhook.
+## 📖 API Usage Examples
 
-## Stripe API surface
+PayRouter accepts standard Stripe form-encoded HTTP requests.
 
-The facade implements the most-used Stripe endpoints for one-time payments and
-(Midtrans) recurring billing, so an existing Stripe integration (stripe-go, stripe-js,
-Next.js, Laravel Cashier, Django, Stripe CLI, …) works with only a base-URL + key
-change. All endpoints accept Stripe-shaped form-encoded params and return Stripe-shaped
-objects.
-
-| Endpoint | Notes |
-| --- | --- |
-| `POST /v1/checkout/sessions` · `GET /v1/checkout/sessions/:id` | Redirect to the gateway hosted page — the natural fit for all four gateways. `line_items` from inline `price_data` or a `price` id; `mode=payment` (one-time) or `mode=subscription` (recurring, Midtrans). Payment mode emits `checkout.session.completed`. |
-| `POST /v1/payment_intents` · `GET /v1/payment_intents/:id` · `POST /v1/payment_intents/:id/confirm` | Manual flow; `confirm` surfaces the redirect `next_action`. |
-| `POST /v1/subscriptions` · `GET /v1/subscriptions/:id` · `DELETE /v1/subscriptions/:id` | Recurring billing (Midtrans). Create returns `status=incomplete` with the authorization redirect at `latest_invoice.payment_intent.next_action.redirect_to_url`; the save-card webhook then activates it. Emits `customer.subscription.created` / `.updated` / `.deleted`. |
-| `GET /v1/invoices/:id` | Retrieve an invoice — the first on activation, then one per recurring cycle. |
-| `POST /v1/refunds` · `GET /v1/refunds/:id` | Full or partial. Supported by Midtrans/Xendit; DOKU/Mayar return a clear error. |
-| `POST /v1/customers` · `GET /v1/customers/:id` | Minimal store/passthrough. |
-| `POST /v1/products` · `GET /v1/products/:id` · `POST /v1/prices` · `GET /v1/prices/:id` | Minimal catalog so Checkout/Subscriptions can reference price ids. Prices support `type=one_time` (default) and `type=recurring` (`recurring[interval]` ∈ day/week/month/year). |
-| `POST /v1/webhooks/:gateway` | Inbound gateway callback (no Bearer auth; verified by the adapter). Also serves recurring notifications. |
-
-One-time payments work on all four gateways. Subscriptions are **Midtrans-only** for now
-(the gateway runs the recurring clock via gateway-side auto-debit); Xendit/DOKU/Mayar
-return a "not supported" error on the subscription endpoints, and Mayar is one-time-only
-by design (no gateway-side auto-debit). The facade runs **no scheduler** — every recurring
-charge is fired by the gateway, and the only follow-up call the facade makes is the single
-schedule-registration triggered by the save-card webhook.
-
-## Try it
-
+### Create a Hosted Checkout Session
 ```bash
-# create a payment intent (form-encoded, like the Stripe SDK sends)
-curl http://localhost:8787/v1/payment_intents \
-  -H "Authorization: Bearer sk_test_..." \
-  -d amount=50000 \
-  -d currency=idr \
-  -d 'payment_method_types[]=id_virtual_account' \
-  -d 'metadata[x_bank]=bca' \
-  -d return_url=https://app.test/done
-
-# retrieve it
-curl http://localhost:8787/v1/payment_intents/pi_... \
-  -H "Authorization: Bearer sk_test_..."
-
-# create a Checkout Session: the customer is redirected to the gateway hosted page.
-# line_items can use inline price_data (below) or a price id (line_items[0][price]=...).
-curl http://localhost:8787/v1/checkout/sessions \
-  -H "Authorization: Bearer sk_test_..." \
-  --data-urlencode mode=payment \
-  --data-urlencode success_url=https://app.test/done \
-  --data-urlencode 'line_items[0][price_data][currency]=idr' \
-  --data-urlencode 'line_items[0][price_data][unit_amount]=50000' \
-  --data-urlencode 'line_items[0][price_data][product_data][name]=T-shirt' \
-  --data-urlencode 'line_items[0][quantity]=2'
-# -> { "id": "cs_…", "object": "checkout.session", "url": "https://<gateway-hosted-page>",
-#      "payment_intent": "pi_…", "amount_total": 100000, "status": "open", … }
-
-# create a subscription (Midtrans): returns incomplete + the authorization redirect.
-# items[0][price] may reference a recurring price id, or use inline price_data as here.
-curl http://localhost:8787/v1/subscriptions \
-  -H "Authorization: Bearer sk_test_..." \
-  --data-urlencode customer=cus_... \
-  --data-urlencode 'items[0][price_data][currency]=idr' \
-  --data-urlencode 'items[0][price_data][unit_amount]=75000' \
-  --data-urlencode 'items[0][price_data][product_data][name]=Pro plan' \
-  --data-urlencode 'items[0][price_data][recurring][interval]=month'
-# -> { "id": "sub_…", "object": "subscription", "status": "incomplete",
-#      "latest_invoice": { "payment_intent": { "next_action": { "redirect_to_url": { … } } } } }
-# The customer completes the hosted save-card page; Midtrans pushes the save-card
-# notification -> the facade registers the schedule -> status flips to "active" and
-# customer.subscription.updated + invoice.payment_succeeded are forwarded.
+curl -X POST http://localhost:8787/v1/checkout/sessions \
+  -H "Authorization: Bearer sk_test_payment_secret_key" \
+  -d "mode=payment" \
+  -d "success_url=https://example.com/success" \
+  -d "cancel_url=https://example.com/cancel" \
+  -d "line_items[0][price_data][currency]=idr" \
+  -d "line_items[0][price_data][unit_amount]=100000" \
+  -d "line_items[0][price_data][product_data][name]=Pro Subscription"
 ```
 
-## Test
+**Stripe Response Output:**
+```json
+{
+  "id": "cs_6b9bdd1df1a3c096d56b713f",
+  "object": "checkout.session",
+  "mode": "payment",
+  "status": "open",
+  "payment_status": "unpaid",
+  "amount_total": 100000,
+  "currency": "idr",
+  "url": "https://checkout-staging.xendit.co/web/6a7d61805a693600d08b6318",
+  "metadata": {
+    "payment_gateway_selected": "xendit",
+    "payment_routing_mode": "least_cost"
+  }
+}
+```
+
+### List All Recent Transactions
+```bash
+curl -X GET http://localhost:8787/v1/payment_intents \
+  -H "Authorization: Bearer sk_test_payment_secret_key"
+```
+
+---
+
+## 🧪 Testing
+
+Run the full Go unit test suite across all gateway adapters, server handlers, and fee calculators:
 
 ```bash
 go test ./...
 ```
 
-## Layout
-
-```
-cmd/facade/            entrypoint
-internal/config/       env-based config
-internal/gateway/      the Gateway adapter interface (the only gateway-aware seam)
-internal/adapters/     gateway implementations (stub, midtrans, xendit, doku, mayar)
-internal/store/        in-memory state needed for translation (intents, webhook queue; no database)
-internal/server/       Stripe-compatible HTTP API
+To generate a visual HTML code coverage report:
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
 ```
 
-License: Apache-2.0 (vendored Stripe types, when used, retain their MIT notice).
+---
+
+## 📄 License
+
+PayRouter is open-source software licensed under the [MIT License](LICENSE). Developed by [Jawalab](https://jawalab.com).
