@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/adapters/midtrans"
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/store"
-	"github.com/stripe-compatible-facade/internal/webhook"
+	"github.com/jawalab-com/payrouter/internal/adapters/midtrans"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/store"
+	"github.com/jawalab-com/payrouter/internal/webhook"
 )
 
 const (

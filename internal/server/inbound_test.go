@@ -12,15 +12,15 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/gateway"
-	"github.com/stripe-compatible-facade/internal/server"
-	"github.com/stripe-compatible-facade/internal/store"
-	"github.com/stripe-compatible-facade/internal/storepg"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/server"
+	"github.com/jawalab-com/payrouter/internal/store"
+	"github.com/jawalab-com/payrouter/internal/storepg"
 	stripe "github.com/stripe/stripe-go/v81"
 )
 
-var inboundDB = os.Getenv("FACADE_TEST_DATABASE_URL")
+var inboundDB = os.Getenv("PAYMENT_TEST_DATABASE_URL")
 
 // fakeWebhookGW is a test-only gateway.Gateway whose ParseWebhook returns a
 // settable list of events (ignoring the body), so the durable inbound path can be
@@ -57,7 +57,7 @@ func (g *fakeWebhookGW) ParseWebhook(_ context.Context, _ *http.Request) ([]gate
 func inboundSetup(t *testing.T) (*httptest.Server, *pgxpool.Pool, *storepg.Store, *fakeWebhookGW, context.Context) {
 	t.Helper()
 	if inboundDB == "" {
-		t.Skip("FACADE_TEST_DATABASE_URL not set; skipping durable inbound test")
+		t.Skip("PAYMENT_TEST_DATABASE_URL not set; skipping durable inbound test")
 	}
 	ctx := context.Background()
 	pool, err := storepg.ConnectPool(ctx, inboundDB)

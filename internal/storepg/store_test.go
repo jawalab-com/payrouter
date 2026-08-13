@@ -9,18 +9,18 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stripe-compatible-facade/internal/store"
-	"github.com/stripe-compatible-facade/internal/storepg"
+	"github.com/jawalab-com/payrouter/internal/store"
+	"github.com/jawalab-com/payrouter/internal/storepg"
 )
 
 // testDB is the shared Postgres URL for facade integration tests. Tests skip when
 // it is unset (same convention as the Rust platform's TEST_DATABASE_URL).
-var testDB = os.Getenv("FACADE_TEST_DATABASE_URL")
+var testDB = os.Getenv("PAYMENT_TEST_DATABASE_URL")
 
 func connect(t *testing.T) (*pgxpool.Pool, *storepg.Store) {
 	t.Helper()
 	if testDB == "" {
-		t.Skip("FACADE_TEST_DATABASE_URL not set; skipping PostgreSQL integration test")
+		t.Skip("PAYMENT_TEST_DATABASE_URL not set; skipping PostgreSQL integration test")
 	}
 	ctx := context.Background()
 	pool, err := storepg.ConnectPool(ctx, testDB)

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 func inbound(gateway, providerID string, hash byte) *store.InboundEvent {

@@ -10,16 +10,16 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stripe-compatible-facade/internal/adapters/stub"
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/server"
-	"github.com/stripe-compatible-facade/internal/storepg"
+	"github.com/jawalab-com/payrouter/internal/adapters/stub"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/server"
+	"github.com/jawalab-com/payrouter/internal/storepg"
 	stripe "github.com/stripe/stripe-go/v81"
 	"github.com/stripe/stripe-go/v81/paymentintent"
 	"github.com/stripe/stripe-go/v81/refund"
 )
 
-var contractDB = os.Getenv("FACADE_TEST_DATABASE_URL")
+var contractDB = os.Getenv("PAYMENT_TEST_DATABASE_URL")
 
 type facadeFixture struct {
 	ts   *httptest.Server
@@ -31,7 +31,7 @@ type facadeFixture struct {
 func setupFacade(t *testing.T) *facadeFixture {
 	t.Helper()
 	if contractDB == "" {
-		t.Skip("FACADE_TEST_DATABASE_URL not set; skipping durable contract test")
+		t.Skip("PAYMENT_TEST_DATABASE_URL not set; skipping durable contract test")
 	}
 	ctx := context.Background()
 	pool, err := storepg.ConnectPool(ctx, contractDB)

@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // Store is the durable PostgreSQL implementation of store.Store.
@@ -422,14 +422,55 @@ func wrapNotFound(err error) error {
 	return err
 }
 
+// ListIntents returns PaymentIntents for an account ordered by created DESC.
+// limit<=0 defaults to 100, capped at 100.
 func (s *Store) ListIntents(accountID string, limit int) []*store.PaymentIntent {
-	return s.mem.ListIntents(accountID, limit)
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(context.Background(),
+		"SELECT "+intentCols+" FROM payment_intents WHERE account_id=$1 ORDER BY created DESC LIMIT $2",
+		accountID, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []*store.PaymentIntent
+	for rows.Next() {
+		pi, err := scanIntent(rows)
+		if err == nil {
+			out = append(out, pi)
+		}
+	}
+	return out
 }
 
+// ListCustomers returns Customers for an account ordered by created DESC.
 func (s *Store) ListCustomers(accountID string, limit int) []*store.Customer {
-	return s.mem.ListCustomers(accountID, limit)
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(context.Background(),
+		`SELECT id,account_id,email,name,phone,metadata,created,livemode
+		 FROM customers WHERE account_id=$1 ORDER BY created DESC LIMIT $2`,
+		accountID, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []*store.Customer
+	for rows.Next() {
+		c, err := scanCustomer(rows)
+		if err == nil {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
+// ListSessions returns Checkout Sessions for an account ordered by created DESC.
+// Sessions are persisted in-memory (not yet migrated to PostgreSQL), so this
+// delegates to the embedded memory store.
 func (s *Store) ListSessions(accountID string, limit int) []*store.Session {
 	return s.mem.ListSessions(accountID, limit)
 }

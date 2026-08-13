@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/account"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/account"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // stripePrice is the Stripe-shaped Price object returned by the facade. Product is

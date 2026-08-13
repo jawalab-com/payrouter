@@ -30,7 +30,7 @@ scenario_payment_intents() {
   assert_eq "404" "$HTTP_STATUS" "retrieve unknown intent is 404"
 
   # Idempotency-Key handling is only active when the facade runs against
-  # PostgreSQL (FACADE_DATABASE_URL); the in-memory store treats it as a no-op.
+  # PostgreSQL (PAYMENT_DATABASE_URL); the in-memory store treats it as a no-op.
   # Detect which mode we're in from the replay itself instead of assuming.
   local idem_key="e2e-idem-$$-$RANDOM"
   IDEMPOTENCY_KEY="$idem_key" request POST /v1/payment_intents "amount=5000" "currency=idr"
@@ -48,7 +48,7 @@ scenario_payment_intents() {
     IDEMPOTENCY_KEY="$idem_key" request POST /v1/payment_intents "amount=9999" "currency=idr"
     assert_eq "409" "$HTTP_STATUS" "same Idempotency-Key with a different body conflicts"
   else
-    skip "replay produced a different id — facade is running without FACADE_DATABASE_URL, so Idempotency-Key is a no-op"
+    skip "replay produced a different id — facade is running without PAYMENT_DATABASE_URL, so Idempotency-Key is a no-op"
   fi
 
   PAYMENT_INTENT_ID="$intent_id"

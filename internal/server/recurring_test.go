@@ -5,10 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/adapters/stub"
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/server"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/adapters/stub"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/server"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // TestContractRecurringDurableAndIsolated: subscriptions created by account A are

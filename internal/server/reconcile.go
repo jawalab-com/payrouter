@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/gateway"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // Reconciler reclaims inbound provider notifications that were left 'processing'

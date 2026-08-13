@@ -17,11 +17,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/stripe-compatible-facade/internal/account"
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/gateway"
-	"github.com/stripe-compatible-facade/internal/orchestrator"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/account"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/orchestrator"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // Server is the Stripe-compatible facade HTTP handler.

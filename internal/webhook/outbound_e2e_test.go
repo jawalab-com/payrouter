@@ -10,17 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/store"
-	"github.com/stripe-compatible-facade/internal/storepg"
-	"github.com/stripe-compatible-facade/internal/webhook"
+	"github.com/jawalab-com/payrouter/internal/store"
+	"github.com/jawalab-com/payrouter/internal/storepg"
+	"github.com/jawalab-com/payrouter/internal/webhook"
 	stripe "github.com/stripe/stripe-go/v81"
 	stripewebhook "github.com/stripe/stripe-go/v81/webhook"
 )
 
 func TestDurableOutboundDeliverySignature(t *testing.T) {
-	db := os.Getenv("FACADE_TEST_DATABASE_URL")
+	db := os.Getenv("PAYMENT_TEST_DATABASE_URL")
 	if db == "" {
-		t.Skip("FACADE_TEST_DATABASE_URL not set")
+		t.Skip("PAYMENT_TEST_DATABASE_URL not set")
 	}
 	ctx := context.Background()
 	pool, err := storepg.ConnectPool(ctx, db)

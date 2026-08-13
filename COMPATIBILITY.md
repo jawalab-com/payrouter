@@ -66,7 +66,7 @@ $$\text{Mayar Total Fee} = \text{Base Fee} + (\text{Amount} \times \text{platfor
 [Payment Facade Engine]
       │
       ▼ (Re-signed via HMAC-SHA256 with WEBHOOK_SIGNING_SECRET)
-[Stripe-Signature Header] ──> Sent to FACADE_WEBHOOK_URL
+[Stripe-Signature Header] ──> Sent to PAYMENT_WEBHOOK_URL
 ```
 
 * **Midtrans:** Verified via SHA-512 signature key (`order_id + status_code + gross_amount + ServerKey`).

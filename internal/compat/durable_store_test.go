@@ -5,14 +5,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/store"
-	"github.com/stripe-compatible-facade/internal/storepg"
+	"github.com/jawalab-com/payrouter/internal/store"
+	"github.com/jawalab-com/payrouter/internal/storepg"
 )
 
-var compatDB = os.Getenv("FACADE_TEST_DATABASE_URL")
+var compatDB = os.Getenv("PAYMENT_TEST_DATABASE_URL")
 
 // newTestStore returns a durable storepg store (migrated, reset, with the default
-// account + facade API key seeded) when FACADE_TEST_DATABASE_URL is set, so the
+// account + facade API key seeded) when PAYMENT_TEST_DATABASE_URL is set, so the
 // official stripe-go end-to-end suite runs through PostgreSQL; otherwise the
 // in-memory store (the historical baseline). The storepg store implements the
 // OutboundStore capability, so the deliverer drains the durable outbox.

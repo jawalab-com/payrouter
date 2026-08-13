@@ -4,7 +4,7 @@ scenario_webhooks() {
   printf '\n== inbound webhooks ==\n'
 
   # The route only accepts the path matching the facade's active gateway
-  # (FACADE_GATEWAY on the server). A mismatched gateway name is a 404 without
+  # (PAYMENT_GATEWAY on the server). A mismatched gateway name is a 404 without
   # even attempting signature verification.
   unauth_request POST "/v1/webhooks/not-a-real-gateway" --data 'anything=1'
   assert_eq "404" "$HTTP_STATUS" "webhook path for an inactive gateway is 404"

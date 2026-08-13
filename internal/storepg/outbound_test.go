@@ -7,14 +7,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stripe-compatible-facade/internal/store"
-	"github.com/stripe-compatible-facade/internal/storepg"
+	"github.com/jawalab-com/payrouter/internal/store"
+	"github.com/jawalab-com/payrouter/internal/storepg"
 )
 
 func setupOutbound(t *testing.T) (*pgxpool.Pool, *storepg.Store, context.Context) {
 	t.Helper()
 	if testDB == "" {
-		t.Skip("FACADE_TEST_DATABASE_URL not set")
+		t.Skip("PAYMENT_TEST_DATABASE_URL not set")
 	}
 	ctx := context.Background()
 	pool, err := storepg.ConnectPool(ctx, testDB)

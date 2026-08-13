@@ -1,4 +1,4 @@
-module github.com/stripe-compatible-facade
+module github.com/jawalab-com/payrouter
 
 go 1.26.5
 

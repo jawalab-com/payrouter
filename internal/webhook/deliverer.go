@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // Deliverer drains the outbound webhook queue and POSTs each Stripe-shaped event
@@ -56,7 +56,7 @@ func New(st store.Store, url, secret string, client *http.Client) *Deliverer {
 // Start runs the delivery loop until ctx is canceled.
 func (d *Deliverer) Start(ctx context.Context) {
 	if d.url == "" {
-		d.logger.Printf("webhook delivery disabled (no FACADE_WEBHOOK_URL); events are received but not forwarded")
+		d.logger.Printf("webhook delivery disabled (no PAYMENT_WEBHOOK_URL); events are received but not forwarded")
 		return
 	}
 	ticker := time.NewTicker(d.pollInterval)

@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/gateway"
 	stripe "github.com/stripe/stripe-go/v81"
 )
 

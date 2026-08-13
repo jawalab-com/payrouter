@@ -16,15 +16,15 @@ Prerequisites: `bash`, `curl`, `jq`.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `FACADE_BASE_URL` | `http://localhost:8787` | facade base URL |
-| `FACADE_API_KEY` | `sk_test_local_vamios` | must match the facade's `FACADE_API_KEY` (matches `infra/compose.yaml`'s default) |
-| `FACADE_GATEWAY` | `stub` | informational — only changes which assertions the webhook/subscription scenarios expect; set it to match the server's actual `FACADE_GATEWAY` |
+| `PAYMENT_BASE_URL` | `http://localhost:8787` | facade base URL |
+| `PAYMENT_API_KEY` | `sk_test_local_vamios` | must match the facade's `PAYMENT_API_KEY` (matches `infra/compose.yaml`'s default) |
+| `PAYMENT_GATEWAY` | `stub` | informational — only changes which assertions the webhook/subscription scenarios expect; set it to match the server's actual `PAYMENT_GATEWAY` |
 
 Start the facade locally with the stub gateway (no credentials, canned
 responses — the default the suite is written against):
 
 ```bash
-FACADE_API_KEY=sk_test_local_vamios FACADE_GATEWAY=stub go run ./cmd/facade
+PAYMENT_API_KEY=sk_test_local_vamios PAYMENT_GATEWAY=stub go run ./cmd/facade
 ./tests/e2e/run.sh
 ```
 
@@ -48,7 +48,7 @@ FACADE_API_KEY=sk_test_local_vamios FACADE_GATEWAY=stub go run ./cmd/facade
 ## Idempotency-Key behavior depends on storage mode
 
 `Idempotency-Key` handling (`payment_intents.sh`) is only active when the
-facade runs with `FACADE_DATABASE_URL` set (durable/PostgreSQL storage); the
+facade runs with `PAYMENT_DATABASE_URL` set (durable/PostgreSQL storage); the
 in-memory store treats the header as a no-op. The scenario detects this from
 the replay response itself and prints `SKIP` with an explanation rather than
 failing when run against the in-memory store — this is expected in that mode,
@@ -62,13 +62,13 @@ sandbox and re-running this same suite against it is a legitimate way to
 exercise the Xendit adapter's translation logic:
 
 ```bash
-FACADE_API_KEY=sk_test_local_vamios \
-FACADE_GATEWAY=xendit \
+PAYMENT_API_KEY=sk_test_local_vamios \
+PAYMENT_GATEWAY=xendit \
 XENDIT_SECRET_KEY=xnd_development_...   \
 XENDIT_WEBHOOK_TOKEN=...                 \
 go run ./cmd/facade
 
-FACADE_GATEWAY=xendit ./tests/e2e/run.sh
+PAYMENT_GATEWAY=xendit ./tests/e2e/run.sh
 ```
 
 What this does and doesn't prove:

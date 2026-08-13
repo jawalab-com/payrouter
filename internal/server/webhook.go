@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/gateway"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/store"
 	stripe "github.com/stripe/stripe-go/v81"
 )
 

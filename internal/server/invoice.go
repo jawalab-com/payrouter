@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/stripe-compatible-facade/internal/account"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/account"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // stripeInvoice is the Stripe-shaped Invoice object. PaymentIntent is emitted as

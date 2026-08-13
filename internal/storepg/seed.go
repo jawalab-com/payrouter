@@ -9,7 +9,7 @@ import (
 
 // SeedDefaultAccount ensures a single default account exists and registers the
 // given Stripe-style secret as its API key (idempotent). This keeps existing
-// clients using FACADE_API_KEY working when the facade moves to durable,
+// clients using PAYMENT_API_KEY working when the facade moves to durable,
 // account-scoped auth. Multi-account administration arrives in a later phase.
 func SeedDefaultAccount(ctx context.Context, pool *pgxpool.Pool, secret string) error {
 	livemode := strings.HasPrefix(secret, "sk_live_")

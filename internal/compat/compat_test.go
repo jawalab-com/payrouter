@@ -17,11 +17,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/adapters/midtrans"
-	"github.com/stripe-compatible-facade/internal/config"
-	facadeserver "github.com/stripe-compatible-facade/internal/server"
-	"github.com/stripe-compatible-facade/internal/store"
-	facadewebhook "github.com/stripe-compatible-facade/internal/webhook"
+	"github.com/jawalab-com/payrouter/internal/adapters/midtrans"
+	"github.com/jawalab-com/payrouter/internal/config"
+	facadeserver "github.com/jawalab-com/payrouter/internal/server"
+	"github.com/jawalab-com/payrouter/internal/store"
+	facadewebhook "github.com/jawalab-com/payrouter/internal/webhook"
 
 	stripe "github.com/stripe/stripe-go/v81"
 	checkoutsession "github.com/stripe/stripe-go/v81/checkout/session"

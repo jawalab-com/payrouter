@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stripe-compatible-facade/migrations"
+	"github.com/jawalab-com/payrouter/migrations"
 )
 
 // Migrate applies every embedded facade migration not yet recorded in

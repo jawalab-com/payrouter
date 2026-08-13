@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/gateway"
 	stripe "github.com/stripe/stripe-go/v81"
 )
 
@@ -121,7 +121,7 @@ func (a *Adapter) ActivateSubscription(ctx context.Context, in *gateway.Activate
 		}
 	}
 	if in.FacadeSubID != "" {
-		body["metadata"] = map[string]any{"facade_sub_id": in.FacadeSubID}
+		body["metadata"] = map[string]any{"PAYMENT_sub_id": in.FacadeSubID}
 	}
 
 	var resp subscriptionResponse

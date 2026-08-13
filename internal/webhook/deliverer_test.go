@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 const fixedNow int64 = 1700000000

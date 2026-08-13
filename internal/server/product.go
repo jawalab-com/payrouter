@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/account"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/account"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // stripeProduct is the Stripe-shaped Product object returned by the facade.

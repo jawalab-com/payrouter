@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stripe-compatible-facade/internal/account"
-	"github.com/stripe-compatible-facade/internal/gateway"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/account"
+	"github.com/jawalab-com/payrouter/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 // stripeRefund is the Stripe-shaped Refund object returned by the facade.

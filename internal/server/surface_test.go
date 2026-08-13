@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/adapters/doku"
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/gateway"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/adapters/doku"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/store"
 	stripe "github.com/stripe/stripe-go/v81"
 )
 

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stripe-compatible-facade/internal/adapters/stub"
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/store"
+	"github.com/jawalab-com/payrouter/internal/adapters/stub"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/store"
 )
 
 func newTestServer(t *testing.T) *Server {

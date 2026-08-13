@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/stripe-compatible-facade/internal/config"
-	"github.com/stripe-compatible-facade/internal/gateway"
+	"github.com/jawalab-com/payrouter/internal/config"
+	"github.com/jawalab-com/payrouter/internal/gateway"
 )
 
 // OrchestratedGateway wraps multiple provider adapters (Midtrans, Xendit, DOKU, Mayar)
