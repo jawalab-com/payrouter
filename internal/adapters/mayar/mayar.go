@@ -9,6 +9,32 @@
 // generates its own payment id and has no field for our pi_ reference, so its
 // callbacks carry Mayar's id and are resolved to an intent via the store's
 // gateway-reference index. The facade never touches money; it only translates.
+//
+// # No direct instrument issuance
+//
+// This adapter deliberately does NOT implement gateway.InstrumentGateway, so
+// callers fall back to the hosted payment link. Mayar does expose a dynamic QR
+// endpoint — POST /hl/v1/qrcode/create, and POST /hl/v2/qr-codes/create in the
+// V2 API — but neither can be used safely here. Both were checked; V2 only
+// standardizes the response envelope and does not add identifiers:
+//
+//   - The request accepts only an amount. There is no field to carry our pi_
+//     reference.
+//   - The response returns only {url, amount} — an image link and the nominal.
+//     No transaction id, payment id, or reference of any kind.
+//
+// Correlation in this adapter depends entirely on Mayar's own id: CreatePayment
+// stores resp.Data.ID as the GatewayReference, and ParseWebhook resolves an
+// inbound payment.received back to a PaymentIntent through that reverse index.
+// A QR created through /qrcode/create yields no id to store, so its eventual
+// webhook would reference a value never recorded and the lookup would fail: the
+// customer pays, and the order is never marked paid. Silent payment loss is a
+// worse outcome than a redirect, so QR issuance stays unimplemented until Mayar
+// exposes either a reference field or an id on that endpoint.
+//
+// Separately, the endpoint returns only a hosted image rather than the raw EMVCo
+// payload, so even with correlation solved it could not be rendered at our own
+// size or offered as copyable text the way Xendit and Midtrans QR codes are.
 package mayar
 
 import (
