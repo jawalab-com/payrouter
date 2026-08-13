@@ -308,7 +308,7 @@ func (s *Server) healthReady(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-// enrichMetadata injects facade_gateway_selected and facade_routing_mode into metadata
+// enrichMetadata injects payment_gateway_selected and payment_routing_mode into metadata
 func (s *Server) enrichMetadata(r *http.Request, resRef string) map[string]string {
 	m := collectMetadata(r)
 	if m == nil {
@@ -317,15 +317,15 @@ func (s *Server) enrichMetadata(r *http.Request, resRef string) map[string]strin
 
 	gwName, _ := orchestrator.ExtractGatewayFromOrderID(resRef)
 	if gwName != "" {
-		m["facade_gateway_selected"] = gwName
+		m["payment_gateway_selected"] = gwName
 	} else if s.gw != nil {
-		m["facade_gateway_selected"] = s.gw.Name()
+		m["payment_gateway_selected"] = s.gw.Name()
 	}
 
 	if s.cfg.ActiveGateway == "auto" || s.cfg.ActiveGateway == "least_cost" || s.cfg.ActiveGateway == "orchestrated" {
-		m["facade_routing_mode"] = "least_cost"
+		m["payment_routing_mode"] = "least_cost"
 	} else {
-		m["facade_routing_mode"] = "static"
+		m["payment_routing_mode"] = "static"
 	}
 
 	return m

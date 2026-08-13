@@ -70,14 +70,29 @@ type MayarConfig struct {
 	BaseURL      string // optional override for the API base URL
 }
 
+// getenvDual checks primary env key (e.g. PAYMENT_ADDR), then fallback key (FACADE_ADDR), then defaultVal.
+func getenvDual(primaryKey, fallbackKey, defaultVal string) string {
+	if v := os.Getenv(primaryKey); v != "" {
+		return v
+	}
+	if v := os.Getenv(fallbackKey); v != "" {
+		return v
+	}
+	return defaultVal
+}
+
 // Load reads configuration from environment variables with sensible defaults.
 func Load() (Config, error) {
+	apiKey := getenvDual("PAYMENT_API_KEY", "FACADE_API_KEY", "")
+	dbURL := strings.TrimSpace(getenvDual("PAYMENT_DATABASE_URL", "FACADE_DATABASE_URL", ""))
+	webhookURL := strings.TrimSpace(getenvDual("PAYMENT_WEBHOOK_URL", "FACADE_WEBHOOK_URL", ""))
+
 	c := Config{
-		AppEnv:        getenv("FACADE_APP_ENV", "development"),
-		Addr:          getenv("FACADE_ADDR", ":8787"),
-		APIKey:        os.Getenv("FACADE_API_KEY"),
-		ActiveGateway: getenv("FACADE_GATEWAY", "stub"),
-		DatabaseURL:   strings.TrimSpace(os.Getenv("FACADE_DATABASE_URL")),
+		AppEnv:        getenvDual("PAYMENT_APP_ENV", "FACADE_APP_ENV", "development"),
+		Addr:          getenvDual("PAYMENT_ADDR", "FACADE_ADDR", ":8787"),
+		APIKey:        apiKey,
+		ActiveGateway: getenvDual("PAYMENT_GATEWAY", "FACADE_GATEWAY", "stub"),
+		DatabaseURL:   dbURL,
 		Midtrans: MidtransConfig{
 			ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
 			Sandbox:   getenv("MIDTRANS_SANDBOX", "true") != "false", // sandbox unless explicitly "false"
@@ -103,7 +118,7 @@ func Load() (Config, error) {
 		},
 		Webhook: WebhookConfig{
 			SigningSecret: strings.TrimSpace(os.Getenv("WEBHOOK_SIGNING_SECRET")),
-			DeliverURL:    strings.TrimSpace(os.Getenv("FACADE_WEBHOOK_URL")),
+			DeliverURL:    webhookURL,
 		},
 	}
 	if c.Webhook.SigningSecret == "" {
