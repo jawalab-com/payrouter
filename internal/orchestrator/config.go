@@ -33,8 +33,8 @@ type OrchestratorSettings struct {
 
 // RootConfig holds the parsed YAML structure
 type RootConfig struct {
-	Version      string                  `yaml:"version"`
-	Orchestrator OrchestratorSettings    `yaml:"orchestrator"`
+	Version      string                    `yaml:"version"`
+	Orchestrator OrchestratorSettings      `yaml:"orchestrator"`
 	Providers    map[string]ProviderConfig `yaml:"providers"`
 }
 
@@ -97,47 +97,47 @@ func DefaultConfig() *RootConfig {
 				Enabled: true,
 				Code:    "mdt",
 				Fees: map[string]FeeConfig{
-					"virtual_account":  {Type: "fixed", Fixed: 4000, VatIncluded: false},
-					"qris":             {Type: "percentage", Percentage: 0.007, VatIncluded: true},
-					"credit_card":      {Type: "mixed", Fixed: 2000, Percentage: 0.029, VatIncluded: false},
-					"ewallet_gopay":    {Type: "percentage", Percentage: 0.02, VatIncluded: true},
-					"ewallet_shopeepay":{Type: "percentage", Percentage: 0.015, VatIncluded: true},
-					"retail_outlet":    {Type: "fixed", Fixed: 5000, VatIncluded: false},
+					"virtual_account":   {Type: "fixed", Fixed: 4000, VatIncluded: false},
+					"qris":              {Type: "percentage", Percentage: 0.007, VatIncluded: true},
+					"credit_card":       {Type: "mixed", Fixed: 2000, Percentage: 0.029, VatIncluded: false},
+					"ewallet_gopay":     {Type: "percentage", Percentage: 0.02, VatIncluded: true},
+					"ewallet_shopeepay": {Type: "percentage", Percentage: 0.015, VatIncluded: true},
+					"retail_outlet":     {Type: "fixed", Fixed: 5000, VatIncluded: false},
 				},
 			},
 			"xendit": {
 				Enabled: true,
 				Code:    "xnd",
 				Fees: map[string]FeeConfig{
-					"virtual_account":  {Type: "fixed", Fixed: 4500, VatIncluded: false},
-					"qris":             {Type: "percentage", Percentage: 0.007, VatIncluded: false},
-					"credit_card":      {Type: "mixed", Fixed: 2000, Percentage: 0.029, VatIncluded: false},
-					"ewallet_gopay":    {Type: "percentage", Percentage: 0.015, VatIncluded: false},
-					"ewallet_shopeepay":{Type: "percentage", Percentage: 0.015, VatIncluded: false},
-					"retail_outlet":    {Type: "fixed", Fixed: 5000, VatIncluded: false},
+					"virtual_account":   {Type: "fixed", Fixed: 4000, VatIncluded: false},
+					"qris":              {Type: "percentage", Percentage: 0.007, VatIncluded: false},
+					"credit_card":       {Type: "mixed", Fixed: 2000, Percentage: 0.029, VatIncluded: false},
+					"ewallet_gopay":     {Type: "percentage", Percentage: 0.02, VatIncluded: false},
+					"ewallet_shopeepay": {Type: "percentage", Percentage: 0.015, VatIncluded: false},
+					"retail_outlet":     {Type: "fixed", Fixed: 4000, VatIncluded: false},
 				},
 			},
 			"doku": {
 				Enabled: true,
 				Code:    "dku",
 				Fees: map[string]FeeConfig{
-					"virtual_account":  {Type: "fixed", Fixed: 4000, VatIncluded: false},
-					"qris":             {Type: "percentage", Percentage: 0.007, VatIncluded: false},
-					"credit_card":      {Type: "mixed", Fixed: 2000, Percentage: 0.029, VatIncluded: false},
-					"retail_outlet":    {Type: "fixed", Fixed: 5000, VatIncluded: false},
+					"virtual_account": {Type: "fixed", Fixed: 4000, VatIncluded: false},
+					"qris":            {Type: "percentage", Percentage: 0.007, VatIncluded: false},
+					"credit_card":     {Type: "mixed", Fixed: 2000, Percentage: 0.028, VatIncluded: false},
+					"retail_outlet":   {Type: "fixed", Fixed: 5000, VatIncluded: false},
 				},
 			},
 			"mayar": {
 				Enabled:        true,
 				Code:           "myr",
 				PlatformFeePct: 0.015,
+				// No e-wallet entries: Mayar does not offer GoPay/ShopeePay, so it must
+				// never be a candidate for those channels.
 				Fees: map[string]FeeConfig{
-					"virtual_account":  {Type: "fixed", Fixed: 4500, VatIncluded: false},
-					"qris":             {Type: "percentage", Percentage: 0.007, VatIncluded: false},
-					"credit_card":      {Type: "mixed", Fixed: 2000, Percentage: 0.026, VatIncluded: false},
-					"ewallet_gopay":    {Type: "percentage", Percentage: 0.015, VatIncluded: false},
-					"ewallet_shopeepay":{Type: "percentage", Percentage: 0.015, VatIncluded: false},
-					"retail_outlet":    {Type: "fixed", Fixed: 5000, VatIncluded: false},
+					"virtual_account": {Type: "fixed", Fixed: 4000, VatIncluded: false},
+					"qris":            {Type: "percentage", Percentage: 0.007, VatIncluded: false},
+					"credit_card":     {Type: "mixed", Fixed: 2000, Percentage: 0.026, VatIncluded: false},
+					"retail_outlet":   {Type: "fixed", Fixed: 5000, VatIncluded: false},
 				},
 			},
 		},

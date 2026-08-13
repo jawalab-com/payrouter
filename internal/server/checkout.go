@@ -51,8 +51,7 @@ type stripeSessionCustomerDetails struct {
 // (inline price_data or referenced price ids), creates the gateway hosted page via
 // CreatePayment, stores the PaymentIntent + Session, and returns the redirect URL.
 func (s *Server) createCheckoutSession(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	if !parseForm(w, r) {
 		return
 	}
 
@@ -141,7 +140,7 @@ func (s *Server) createCheckoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	meta := s.enrichMetadata(r, res.Reference)
+	meta := s.enrichMetadata(r, res)
 	pi := &store.PaymentIntent{
 		ID:               piID,
 		AccountID:        account.From(r.Context()),
@@ -194,8 +193,7 @@ func (s *Server) createCheckoutSession(w http.ResponseWriter, r *http.Request) {
 // path and returns a Checkout Session whose URL is the authorization redirect
 // and whose Subscription is the new sub_ id (Checkout's subscription-mode shape).
 func (s *Server) createCheckoutSubscription(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	if !parseForm(w, r) {
 		return
 	}
 	successURL := r.PostFormValue("success_url")

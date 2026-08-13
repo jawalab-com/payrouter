@@ -122,10 +122,20 @@ func selectGateway(cfg config.Config) (gateway.Gateway, error) {
 		return stub.New(), nil
 
 	case "auto", "least_cost", "orchestrated":
-		orchCfg, err := orchestrator.LoadConfig("config.yaml")
+		// PAYMENT_CONFIG_PATH is documented, so honor it rather than assuming the
+		// fee schedule sits in the process working directory.
+		orchCfg, err := orchestrator.LoadConfig(cfg.ConfigPath)
 		if err != nil {
-			slog.Warn("orchestrator: could not load config.yaml, using defaults", "error", err)
+			// Not fatal — the compiled-in schedule is kept in sync with config.yaml
+			// by test — but it means every fee override in that file is being
+			// ignored, which is invisible from the outside. Say so plainly.
+			slog.Warn("orchestrator: fee schedule not loaded; routing on compiled-in defaults, all config.yaml overrides ignored",
+				"path", cfg.ConfigPath,
+				"error", err,
+				"hint", "set PAYMENT_CONFIG_PATH or mount config.yaml into the container")
 			orchCfg = orchestrator.DefaultConfig()
+		} else {
+			slog.Info("orchestrator: fee schedule loaded", "path", cfg.ConfigPath)
 		}
 
 		adapters := orchestrator.BuildCandidateAdapters(cfg, func(name string) (gateway.Gateway, bool) {

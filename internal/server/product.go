@@ -22,8 +22,7 @@ type stripeProduct struct {
 }
 
 func (s *Server) createProduct(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	if !parseForm(w, r) {
 		return
 	}
 	name := r.PostFormValue("name")

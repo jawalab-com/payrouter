@@ -56,8 +56,7 @@ type stripeNextActionRedirect struct {
 // --- Handlers ---------------------------------------------------------------
 
 func (s *Server) createPaymentIntent(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	if !parseForm(w, r) {
 		return
 	}
 	amount, err := strconv.ParseInt(r.PostFormValue("amount"), 10, 64)
@@ -138,7 +137,7 @@ func (s *Server) createPaymentIntent(w http.ResponseWriter, r *http.Request) {
 	fromStatus := pi.Status
 	pi.Status = string(res.Status)
 	pi.GatewayReference = res.GatewayReference
-	pi.Metadata = s.enrichMetadata(r, res.Reference)
+	pi.Metadata = s.enrichMetadata(r, res)
 	applyNextAction(pi, res.NextAction)
 
 	if s.payments != nil {
@@ -191,8 +190,7 @@ func (s *Server) retrievePaymentIntent(w http.ResponseWriter, r *http.Request) {
 // (matching Stripe, which returns the intent with its redirect). An explicit
 // return_url updates where the customer lands after the redirect.
 func (s *Server) confirmPaymentIntent(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	if !parseForm(w, r) {
 		return
 	}
 	id := r.PathValue("id")

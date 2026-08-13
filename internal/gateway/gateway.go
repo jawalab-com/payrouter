@@ -90,7 +90,38 @@ type PaymentResult struct {
 	Status           stripe.PaymentIntentStatus      // StatusRequiresAction, StatusSucceeded, ...
 	NextAction       *stripe.PaymentIntentNextAction // redirect_to_url for VA/QRIS/ewallet/hosted
 	ExpiresAt        int64                           // unix seconds (VA/QRIS expire)
+	Routing          *RoutingInfo                    // how the gateway was chosen; nil for direct (non-orchestrated) adapters
 	Raw              any                             // gateway payload, debugging only
+}
+
+// RoutingBasis records WHY a gateway was chosen, so callers never report a
+// least-cost decision that did not happen. Reported verbatim as the
+// payment_routing_mode metadata value.
+type RoutingBasis string
+
+const (
+	// RoutingLeastCost means real fee data was found for the resolved channel and
+	// the cheapest candidate won.
+	RoutingLeastCost RoutingBasis = "least_cost"
+	// RoutingFallbackPriority means no candidate had a fee entry for the channel
+	// (or the channel could not be resolved at all), so the configured priority
+	// order picked the gateway. NO cost comparison took place.
+	RoutingFallbackPriority RoutingBasis = "fallback_priority"
+	// RoutingStatic means a single gateway was configured directly; the
+	// orchestrator was never consulted.
+	RoutingStatic RoutingBasis = "static"
+)
+
+// RoutingInfo describes how the orchestrator selected a gateway for one payment.
+// Channel is the resolved fee-table key ("qris", "virtual_account", ...) and is
+// empty when the requested payment method type could not be mapped to one —
+// notably IDHosted, where the method is not yet known at selection time.
+type RoutingInfo struct {
+	Gateway  string       // chosen gateway name
+	Channel  string       // resolved fee-table channel; "" when unresolved
+	Basis    RoutingBasis // why this gateway won
+	FeeMinor float64      // computed fee in minor units; meaningful only when Basis is RoutingLeastCost
+	Compared int          // number of candidates that produced a real fee quote
 }
 
 // RefundInput describes a refund to issue.

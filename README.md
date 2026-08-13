@@ -11,10 +11,65 @@ Existing frontend applications, mobile apps, and backend services built with off
 ## 🚀 Key Features
 
 * **100% Stripe REST API Surface Compatibility:** Drop-in replacement for Checkout Sessions (`/v1/checkout/sessions`), Payment Intents (`/v1/payment_intents`), Customers (`/v1/customers`), Subscriptions (`/v1/subscriptions`), Refunds (`/v1/refunds`), and Products/Prices (`/v1/products`, `/v1/prices`).
-* **Dynamic Least-Cost Fee Orchestrator (`PAYMENT_GATEWAY=auto`):** Evaluates real-time MDR fees, fixed charges, platform modifiers, and 11% PPN tax rules for every payment method to automatically pick the cheapest gateway.
-* **Metadata Insights:** Every response automatically enriches Stripe metadata with `payment_gateway_selected` and `payment_routing_mode`.
-* **Zero-DB Stateless Default:** Runs in pure 0-DB memory mode out of the box with zero external database dependencies. Optional PostgreSQL driver available for enterprise audit logs.
+* **Dynamic Least-Cost Fee Orchestrator (`PAYMENT_GATEWAY=auto`):** Evaluates real-time MDR fees, fixed charges, platform modifiers, and 11% PPN tax rules for every payment method to automatically pick the cheapest gateway. Requires a known payment method — see [Routing coverage](#-routing-coverage) for where it applies and where it cannot.
+* **Metadata Insights:** Every response automatically enriches Stripe metadata with `payment_gateway_selected`, `payment_routing_mode`, and (when a fee comparison ran) `payment_routing_channel`.
+* **In-Memory Mode for Development:** Runs with zero external dependencies for local development and evaluation. **PostgreSQL is required for production** and is enforced at startup — see [Storage modes](#-storage-modes) for what memory mode does not provide.
 * **Unified Outbound Webhooks:** Translates gateway callbacks into standard Stripe events (`checkout.session.completed`, `payment_intent.succeeded`, `charge.refunded`) signed with standard `Stripe-Signature` headers.
+
+---
+
+## 🗄️ Storage modes
+
+PayRouter runs against an in-memory store by default and PostgreSQL when
+`PAYMENT_DATABASE_URL` is set. These are **not** equivalent, and the difference
+is about payment correctness, not just persistence:
+
+| Capability | In-memory (default) | PostgreSQL (`PAYMENT_DATABASE_URL`) |
+| :--- | :---: | :---: |
+| Stripe API surface | ✅ | ✅ |
+| Gateway routing & webhooks | ✅ | ✅ |
+| **`Idempotency-Key` handling** | ❌ ignored | ✅ enforced |
+| **Inbound webhook deduplication** | ❌ | ✅ |
+| Crash reconciliation of in-flight callbacks | ❌ | ✅ |
+| Multi-tenant (per-account) API keys | ❌ single key | ✅ |
+| Survives restart | ❌ | ✅ |
+
+Without PostgreSQL, `Idempotency-Key` is accepted but **not honored**: a client
+retrying a timed-out `POST /v1/payment_intents` creates a *second payment*, and a
+redelivered gateway callback is reprocessed. That is a duplicate-charge risk, so
+memory mode is strictly for development and evaluation.
+
+This is enforced, not merely advised — with `PAYMENT_APP_ENV=production`, startup
+fails unless `PAYMENT_DATABASE_URL` is set. Bring your own PostgreSQL (any managed
+or self-hosted instance); migrations are applied automatically at boot.
+
+---
+
+## 🧭 Routing coverage
+
+Least-cost routing needs a payment method to price against, because the MDR fee
+schedule is per-method. Where the method is known at creation time, routing
+compares every configured gateway and picks the cheapest:
+
+| Request | Channel priced | Routing |
+| :--- | :--- | :--- |
+| `payment_method_types[]=id_qris` | `qris` | ✅ least-cost |
+| `payment_method_types[]=id_virtual_account` | `virtual_account` | ✅ least-cost |
+| `payment_method_types[]=id_card` | `credit_card` | ✅ least-cost |
+| `payment_method_types[]=id_retail` | `retail_outlet` | ✅ least-cost |
+| `payment_method_types[]=id_ewallet` + `wallet=gopay` | `ewallet_gopay` | ✅ least-cost |
+| `POST /v1/checkout/sessions` (hosted) | — | ⚠️ fallback priority |
+
+**Hosted Checkout Sessions cannot be cost-routed.** A hosted page lets the
+customer choose the method *after* the gateway has been selected, so no single
+fee applies at selection time. Those sessions fall back to the configured
+`fallback_priority` order, log a warning, and report
+`payment_routing_mode: fallback_priority` in metadata — the response never claims
+a fee comparison that did not happen.
+
+To get least-cost routing on checkout, either create a PaymentIntent with an
+explicit `payment_method_types[]`, or collect the method in your own UI before
+calling PayRouter.
 
 ---
 
@@ -45,6 +100,11 @@ PAYMENT_ADDR=:8787
 PAYMENT_API_KEY=sk_test_payment_secret_key
 PAYMENT_GATEWAY=auto  # Options: auto (least-cost), midtrans, xendit, doku, mayar, stub
 PAYMENT_CONFIG_PATH=./config.yaml
+PAYMENT_APP_ENV=development       # "production" requires PAYMENT_DATABASE_URL + WEBHOOK_SIGNING_SECRET
+PAYMENT_MAX_BODY_BYTES=1048576    # per-request body cap (default 1 MiB); oversized requests get HTTP 413
+
+# Durable storage (REQUIRED in production — see "Storage modes")
+PAYMENT_DATABASE_URL=postgres://user:pass@host:5432/payrouter?sslmode=require
 
 # Outbound Stripe Webhook Destination
 PAYMENT_WEBHOOK_URL=https://your-app.example.com/api/stripe-webhook
@@ -67,8 +127,8 @@ git clone https://github.com/jawalab-com/payrouter.git
 cd payrouter
 
 # Build and run
-go build -o payrouter.exe ./cmd/facade
-./payrouter.exe
+go build -o payrouter ./cmd/payrouter
+./payrouter
 ```
 
 ### 2. Run via Docker

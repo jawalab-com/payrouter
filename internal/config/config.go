@@ -6,8 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
+
+// DefaultMaxBodyBytes caps a single request body at 1 MiB. Stripe-shaped form
+// payloads are kilobytes at most, and gateway callbacks are smaller still, so
+// this leaves generous headroom while bounding memory per request.
+const DefaultMaxBodyBytes int64 = 1 << 20
 
 // Config holds runtime configuration.
 type Config struct {
@@ -17,6 +23,8 @@ type Config struct {
 	Livemode      bool   // true when APIKey is a live key; test keys target gateway sandboxes
 	ActiveGateway string // which adapter to use: "stub" (M0), "midtrans" (M1), "xendit" (M4), "doku" (M5), or "mayar" (M5)
 	DatabaseURL   string // when non-empty, the facade runs against PostgreSQL (durable); empty => in-memory (tests/dev)
+	MaxBodyBytes  int64  // per-request body ceiling; 0 => DefaultMaxBodyBytes
+	ConfigPath    string // path to the orchestrator fee schedule (config.yaml)
 	Midtrans      MidtransConfig
 	Xendit        XenditConfig
 	Doku          DokuConfig
@@ -78,6 +86,16 @@ func getenv(key, defaultVal string) string {
 	return defaultVal
 }
 
+// getenvInt64 reads a positive int64 from the environment, falling back to
+// defaultVal when unset, unparseable, or non-positive.
+func getenvInt64(key string, defaultVal int64) int64 {
+	v, err := strconv.ParseInt(strings.TrimSpace(os.Getenv(key)), 10, 64)
+	if err != nil || v <= 0 {
+		return defaultVal
+	}
+	return v
+}
+
 // Load reads configuration from environment variables with sensible defaults.
 func Load() (Config, error) {
 	c := Config{
@@ -86,6 +104,8 @@ func Load() (Config, error) {
 		APIKey:        os.Getenv("PAYMENT_API_KEY"),
 		ActiveGateway: getenv("PAYMENT_GATEWAY", "stub"),
 		DatabaseURL:   strings.TrimSpace(os.Getenv("PAYMENT_DATABASE_URL")),
+		MaxBodyBytes:  getenvInt64("PAYMENT_MAX_BODY_BYTES", DefaultMaxBodyBytes),
+		ConfigPath:    getenv("PAYMENT_CONFIG_PATH", "config.yaml"),
 		Midtrans: MidtransConfig{
 			ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
 			Sandbox:   getenv("MIDTRANS_SANDBOX", "true") != "false", // sandbox unless explicitly "false"

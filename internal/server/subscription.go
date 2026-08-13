@@ -80,8 +80,7 @@ func (s *Server) subscriptionGW() (gateway.SubscriptionGateway, bool) {
 // The returned subscription carries the redirect at
 // latest_invoice.payment_intent.next_action.redirect_to_url.
 func (s *Server) createSubscription(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	if !parseForm(w, r) {
 		return
 	}
 	customerID := r.PostFormValue("customer")

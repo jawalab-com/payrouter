@@ -99,8 +99,50 @@ func (s *Server) routes() {
 }
 
 // ServeHTTP implements http.Handler.
+//
+// Every request body is capped before it reaches a handler. Without this, the
+// idempotency middleware's io.ReadAll and each handler's ParseForm would read an
+// attacker-controlled body into memory with no ceiling. The cap applies to
+// gateway callbacks too, which are unauthenticated by design.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Body != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, s.maxBodyBytes())
+	}
 	s.mux.ServeHTTP(w, r)
+}
+
+// maxBodyBytes is the per-request body ceiling, from config with a safe default.
+func (s *Server) maxBodyBytes() int64 {
+	if s.cfg.MaxBodyBytes > 0 {
+		return s.cfg.MaxBodyBytes
+	}
+	return config.DefaultMaxBodyBytes
+}
+
+// bodyLimitExceeded reports whether err is the sentinel returned once a request
+// body exceeds the MaxBytesReader ceiling, so it can be answered 413 rather than
+// being reported as a malformed request.
+func bodyLimitExceeded(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.As(err, &maxErr)
+}
+
+// parseForm parses a Stripe-style form body and writes the appropriate error
+// response on failure, returning false when the caller should stop. An
+// over-limit body is reported as 413 rather than 400 so a client can tell "too
+// big" from "malformed" — the two need different fixes.
+func parseForm(w http.ResponseWriter, r *http.Request) bool {
+	err := r.ParseForm()
+	if err == nil {
+		return true
+	}
+	if bodyLimitExceeded(err) {
+		writeStripeError(w, http.StatusRequestEntityTooLarge, "request_too_large",
+			"Request body exceeds the maximum permitted size.")
+		return false
+	}
+	writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to parse request body.")
+	return false
 }
 
 // auth validates the Stripe-style "Bearer sk_..." API key. When the store is
@@ -149,6 +191,11 @@ func (s *Server) idempotency(operation string, h http.HandlerFunc) http.HandlerF
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
+			if bodyLimitExceeded(err) {
+				writeStripeError(w, http.StatusRequestEntityTooLarge, "request_too_large",
+					"Request body exceeds the maximum permitted size.")
+				return
+			}
 			writeStripeError(w, http.StatusBadRequest, "invalid_request_error", "Unable to read request body.")
 			return
 		}
@@ -311,13 +358,25 @@ func (s *Server) healthReady(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-// enrichMetadata injects payment_gateway_selected and payment_routing_mode into metadata
-func (s *Server) enrichMetadata(r *http.Request, resRef string) map[string]string {
+// enrichMetadata injects payment_gateway_selected and payment_routing_mode into
+// metadata.
+//
+// payment_routing_mode reports what actually happened, not what was configured.
+// Orchestration mode does not guarantee a least-cost decision: when no candidate
+// has a fee entry for the resolved channel — every hosted Checkout Session, for
+// one, since the method is chosen after the gateway is — the orchestrator falls
+// back to priority order. That case reports "fallback_priority", so the metadata
+// never claims a fee comparison that did not run.
+func (s *Server) enrichMetadata(r *http.Request, res *gateway.PaymentResult) map[string]string {
 	m := collectMetadata(r)
 	if m == nil {
 		m = make(map[string]string)
 	}
 
+	var resRef string
+	if res != nil {
+		resRef = res.Reference
+	}
 	gwName, _ := orchestrator.ExtractGatewayFromOrderID(resRef)
 	if gwName != "" && gwName != "unknown" {
 		m["payment_gateway_selected"] = gwName
@@ -325,11 +384,29 @@ func (s *Server) enrichMetadata(r *http.Request, resRef string) map[string]strin
 		m["payment_gateway_selected"] = s.gw.Name()
 	}
 
-	if s.cfg.ActiveGateway == "auto" || s.cfg.ActiveGateway == "least_cost" || s.cfg.ActiveGateway == "orchestrated" {
-		m["payment_routing_mode"] = "least_cost"
-	} else {
-		m["payment_routing_mode"] = "static"
+	switch {
+	case res != nil && res.Routing != nil:
+		m["payment_routing_mode"] = string(res.Routing.Basis)
+		if res.Routing.Channel != "" {
+			m["payment_routing_channel"] = res.Routing.Channel
+		}
+	case s.isOrchestrated():
+		// Orchestrated but the adapter reported no decision (e.g. a direct
+		// SubscriptionGateway path): don't assert a basis we can't substantiate.
+		m["payment_routing_mode"] = "unknown"
+	default:
+		m["payment_routing_mode"] = string(gateway.RoutingStatic)
 	}
 
 	return m
+}
+
+// isOrchestrated reports whether the configured gateway is the dynamic router
+// rather than a single named adapter.
+func (s *Server) isOrchestrated() bool {
+	switch s.cfg.ActiveGateway {
+	case "auto", "least_cost", "orchestrated":
+		return true
+	}
+	return false
 }

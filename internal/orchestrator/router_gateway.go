@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/jawalab-com/payrouter/internal/config"
 	"github.com/jawalab-com/payrouter/internal/gateway"
@@ -37,9 +39,21 @@ func (og *OrchestratedGateway) CreatePayment(ctx context.Context, in *gateway.Cr
 		return nil, errors.New("orchestrator: no gateway credentials configured in environment")
 	}
 
-	channel := "virtual_account" // Default channel
-	if in != nil && string(in.PaymentMethodType) != "" {
-		channel = string(in.PaymentMethodType)
+	var methodType string
+	var methodParams map[string]any
+	var amount float64
+	if in != nil {
+		methodType = string(in.PaymentMethodType)
+		methodParams = in.MethodParams
+		amount = float64(in.AmountMinor)
+	}
+
+	// Resolve the fee-table channel. An unresolved channel is priced by nobody, so
+	// SelectBest will fall back on priority order — we surface that here rather
+	// than letting it pass as a cost decision.
+	channel, resolved := ResolveChannel(methodType, methodParams)
+	if !resolved {
+		channel = methodType
 	}
 
 	// Filter candidate names to only adapters that are loaded with non-empty keys
@@ -48,19 +62,27 @@ func (og *OrchestratedGateway) CreatePayment(ctx context.Context, in *gateway.Cr
 		candidates = append(candidates, name)
 	}
 
-	var amount float64
-	if in != nil {
-		amount = float64(in.AmountMinor)
+	info := og.router.SelectBest(candidates, channel, amount)
+	if info.Basis != gateway.RoutingLeastCost {
+		// Loud on purpose: least-cost routing is the product's headline behavior,
+		// so every payment that does NOT get it should be traceable in the logs.
+		slog.Warn("orchestrator: no fee data for channel, falling back to priority order",
+			"payment_method_type", methodType,
+			"resolved_channel", info.Channel,
+			"selected_gateway", info.Gateway,
+			"candidates", candidates,
+			"hint", hostedHint(methodType))
+	} else {
+		slog.Debug("orchestrator: least-cost selection",
+			"channel", info.Channel,
+			"selected_gateway", info.Gateway,
+			"fee_minor", info.FeeMinor,
+			"compared", info.Compared)
 	}
 
-	bestGW, _, err := og.router.SelectBestGateway(candidates, channel, amount)
-	if err != nil {
-		return nil, fmt.Errorf("orchestrator selection error: %w", err)
-	}
-
-	adapter, ok := og.adapters[bestGW]
+	adapter, ok := og.adapters[info.Gateway]
 	if !ok {
-		return nil, fmt.Errorf("orchestrator selected gateway %s but adapter is not loaded", bestGW)
+		return nil, fmt.Errorf("orchestrator selected gateway %s but adapter is not loaded", info.Gateway)
 	}
 
 	res, err := adapter.CreatePayment(ctx, in)
@@ -69,11 +91,24 @@ func (og *OrchestratedGateway) CreatePayment(ctx context.Context, in *gateway.Cr
 	}
 
 	// Tag reference with gateway prefix for stateless 0-DB routing on callbacks
-	if res != nil && res.Reference != "" {
-		res.Reference = FormatOrderID(bestGW, res.Reference)
+	if res != nil {
+		if res.Reference != "" {
+			res.Reference = FormatOrderID(info.Gateway, res.Reference)
+		}
+		routing := info
+		res.Routing = &routing
 	}
 
 	return res, nil
+}
+
+// hostedHint explains the one unresolvable case that is structural rather than a
+// misconfiguration, so the warning does not read as a missing fee table.
+func hostedHint(methodType string) string {
+	if strings.EqualFold(strings.TrimSpace(methodType), string(gateway.IDHosted)) {
+		return "hosted checkout selects the payment method after gateway selection, so no single channel can be priced; add a fee entry per method and route at confirm time to enable least-cost here"
+	}
+	return "add a fee entry for this channel in config.yaml to enable least-cost routing"
 }
 
 // GetStatus extracts the gateway prefix from gatewayRef and routes query to target adapter.
