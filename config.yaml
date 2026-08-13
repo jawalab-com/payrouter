@@ -1,0 +1,116 @@
+version: "1.0"
+
+orchestrator:
+  strategy: "lowest_fee" # Routing options: lowest_fee | round_robin | priority
+  vat_rate: ${VAT_RATE:0.11} # Standard Indonesian PPN (11%)
+  fallback_priority:
+    - midtrans
+    - xendit
+    - doku
+    - mayar
+
+providers:
+  midtrans:
+    enabled: ${MIDTRANS_ENABLED:true}
+    code: "mdt"
+    fees:
+      qris:
+        type: "percentage"
+        percentage: ${MIDTRANS_FEE_QRIS_PCT:0.007}
+        vat_included: true # Midtrans includes VAT for QRIS
+      virtual_account:
+        type: "fixed"
+        fixed: ${MIDTRANS_FEE_VA_FIXED:4000}
+        vat_included: false
+      credit_card:
+        type: "mixed"
+        percentage: ${MIDTRANS_FEE_CC_PCT:0.029}
+        fixed: ${MIDTRANS_FEE_CC_FIXED:2000}
+        vat_included: false
+      ewallet_gopay:
+        type: "percentage"
+        percentage: ${MIDTRANS_FEE_GOPAY_PCT:0.020}
+        vat_included: true # Midtrans includes VAT for GoPay
+      ewallet_shopeepay:
+        type: "percentage"
+        percentage: ${MIDTRANS_FEE_SHOPEEPAY_PCT:0.015}
+        vat_included: true # Midtrans includes VAT for ShopeePay
+      retail_outlet:
+        type: "fixed"
+        fixed: ${MIDTRANS_FEE_RETAIL_FIXED:5000}
+        vat_included: false
+
+  xendit:
+    enabled: ${XENDIT_ENABLED:true}
+    code: "xnd"
+    fees:
+      qris:
+        type: "percentage"
+        percentage: ${XENDIT_FEE_QRIS_PCT:0.007}
+        vat_included: false
+      virtual_account:
+        type: "fixed"
+        fixed: ${XENDIT_FEE_VA_FIXED:4000}
+        vat_included: false
+      credit_card:
+        type: "mixed"
+        percentage: ${XENDIT_FEE_CC_PCT:0.029}
+        fixed: ${XENDIT_FEE_CC_FIXED:2000}
+        vat_included: false
+      ewallet_gopay:
+        type: "percentage"
+        percentage: ${XENDIT_FEE_GOPAY_PCT:0.020}
+        vat_included: false
+      ewallet_shopeepay:
+        type: "percentage"
+        percentage: ${XENDIT_FEE_SHOPEEPAY_PCT:0.015}
+        vat_included: false
+      retail_outlet:
+        type: "fixed"
+        fixed: ${XENDIT_FEE_RETAIL_FIXED:4000}
+        vat_included: false
+
+  doku:
+    enabled: ${DOKU_ENABLED:true}
+    code: "dku"
+    fees:
+      qris:
+        type: "percentage"
+        percentage: ${DOKU_FEE_QRIS_PCT:0.007}
+        vat_included: false
+      virtual_account:
+        type: "fixed"
+        fixed: ${DOKU_FEE_VA_FIXED:4000}
+        vat_included: false
+      credit_card:
+        type: "mixed"
+        percentage: ${DOKU_FEE_CC_PCT:0.028}
+        fixed: ${DOKU_FEE_CC_FIXED:2000}
+        vat_included: false
+      retail_outlet:
+        type: "fixed"
+        fixed: ${DOKU_FEE_RETAIL_FIXED:5000}
+        vat_included: false
+
+  mayar:
+    enabled: ${MAYAR_ENABLED:true}
+    code: "myr"
+    platform_fee_pct: ${MAYAR_PLATFORM_FEE_PCT:0.015} # Mayar platform tier fee (Starter 1.5%)
+    fees:
+      qris:
+        type: "percentage"
+        percentage: ${MAYAR_FEE_QRIS_PCT:0.007}
+        vat_included: false
+      virtual_account:
+        type: "fixed"
+        fixed: ${MAYAR_FEE_VA_FIXED:4000}
+        vat_included: false
+      credit_card:
+        type: "mixed"
+        percentage: ${MAYAR_FEE_CC_PCT:0.026}
+        fixed: ${MAYAR_FEE_CC_FIXED:2000}
+        vat_included: false
+      retail_outlet:
+        type: "fixed"
+        fixed: ${MAYAR_FEE_RETAIL_FIXED:5000}
+        vat_included: false

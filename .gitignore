@@ -1,0 +1,27 @@
+# Environment secrets & local config
+.env
+.env.local
+
+# Binaries & executables
+*.exe
+*.exe.stackdump
+*.dll
+*.so
+*.dylib
+facade
+
+# Test artifacts & coverage reports
+coverage.out
+coverage.html
+test_report.json
+*.log
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Temporary build directory
+tmp/
+scratch/
