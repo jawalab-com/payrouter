@@ -13,7 +13,7 @@ import (
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	return New(config.Config{APIKey: "sk_test_x", Livemode: false}, store.NewMemory(), stub.New())
+	return New(config.Config{APIKey: "sk_test_x", ActiveGateway: "stub", Livemode: false}, store.NewMemory(), stub.New())
 }
 
 func TestCreateAndRetrievePaymentIntent(t *testing.T) {
@@ -50,6 +50,12 @@ func TestCreateAndRetrievePaymentIntent(t *testing.T) {
 	}
 	if !strings.Contains(resp, `"x_bank":"bca"`) {
 		t.Fatalf("create: expected metadata to round-trip: %s", resp)
+	}
+	if !strings.Contains(resp, `"payment_gateway_selected":"stub"`) {
+		t.Fatalf("create: expected payment_gateway_selected metadata: %s", resp)
+	}
+	if !strings.Contains(resp, `"payment_routing_mode":"static"`) {
+		t.Fatalf("create: expected payment_routing_mode metadata: %s", resp)
 	}
 
 	id := extractID(resp)

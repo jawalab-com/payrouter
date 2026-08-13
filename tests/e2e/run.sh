@@ -10,9 +10,9 @@ source "$SCRIPT_DIR/lib/api.sh"
 require_command curl
 require_command jq
 
-BASE_URL="${FACADE_BASE_URL:-http://localhost:8787}"
-API_KEY="${FACADE_API_KEY:-sk_test_local_vamios}"
-GATEWAY="${FACADE_GATEWAY:-stub}"
+BASE_URL="${PAYMENT_BASE_URL:-http://localhost:8787}"
+API_KEY="${PAYMENT_API_KEY:-sk_test_local_vamios}"
+GATEWAY="${PAYMENT_GATEWAY:-stub}"
 
 printf 'stripe-compatible-facade E2E\n'
 printf 'Target: %s (gateway=%s)\n' "$BASE_URL" "$GATEWAY"

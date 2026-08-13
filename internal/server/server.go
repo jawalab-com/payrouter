@@ -316,7 +316,7 @@ func (s *Server) enrichMetadata(r *http.Request, resRef string) map[string]strin
 	}
 
 	gwName, _ := orchestrator.ExtractGatewayFromOrderID(resRef)
-	if gwName != "" {
+	if gwName != "" && gwName != "unknown" {
 		m["payment_gateway_selected"] = gwName
 	} else if s.gw != nil {
 		m["payment_gateway_selected"] = s.gw.Name()

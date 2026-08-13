@@ -70,12 +70,9 @@ type MayarConfig struct {
 	BaseURL      string // optional override for the API base URL
 }
 
-// getenvDual checks primary env key (e.g. PAYMENT_ADDR), then fallback key (FACADE_ADDR), then defaultVal.
-func getenvDual(primaryKey, fallbackKey, defaultVal string) string {
-	if v := os.Getenv(primaryKey); v != "" {
-		return v
-	}
-	if v := os.Getenv(fallbackKey); v != "" {
+// getenv returns os.Getenv(key) if non-empty, otherwise defaultVal.
+func getenv(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return defaultVal
@@ -83,16 +80,12 @@ func getenvDual(primaryKey, fallbackKey, defaultVal string) string {
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() (Config, error) {
-	apiKey := getenvDual("PAYMENT_API_KEY", "FACADE_API_KEY", "")
-	dbURL := strings.TrimSpace(getenvDual("PAYMENT_DATABASE_URL", "FACADE_DATABASE_URL", ""))
-	webhookURL := strings.TrimSpace(getenvDual("PAYMENT_WEBHOOK_URL", "FACADE_WEBHOOK_URL", ""))
-
 	c := Config{
-		AppEnv:        getenvDual("PAYMENT_APP_ENV", "FACADE_APP_ENV", "development"),
-		Addr:          getenvDual("PAYMENT_ADDR", "FACADE_ADDR", ":8787"),
-		APIKey:        apiKey,
-		ActiveGateway: getenvDual("PAYMENT_GATEWAY", "FACADE_GATEWAY", "stub"),
-		DatabaseURL:   dbURL,
+		AppEnv:        getenv("PAYMENT_APP_ENV", "development"),
+		Addr:          getenv("PAYMENT_ADDR", ":8787"),
+		APIKey:        os.Getenv("PAYMENT_API_KEY"),
+		ActiveGateway: getenv("PAYMENT_GATEWAY", "stub"),
+		DatabaseURL:   strings.TrimSpace(os.Getenv("PAYMENT_DATABASE_URL")),
 		Midtrans: MidtransConfig{
 			ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
 			Sandbox:   getenv("MIDTRANS_SANDBOX", "true") != "false", // sandbox unless explicitly "false"
@@ -118,7 +111,7 @@ func Load() (Config, error) {
 		},
 		Webhook: WebhookConfig{
 			SigningSecret: strings.TrimSpace(os.Getenv("WEBHOOK_SIGNING_SECRET")),
-			DeliverURL:    webhookURL,
+			DeliverURL:    strings.TrimSpace(os.Getenv("PAYMENT_WEBHOOK_URL")),
 		},
 	}
 	if c.Webhook.SigningSecret == "" {
@@ -133,25 +126,25 @@ func Load() (Config, error) {
 	}
 	c.Livemode = strings.HasPrefix(c.APIKey, "sk_live_")
 	if c.APIKey == "" {
-		return Config{}, fmt.Errorf("FACADE_API_KEY must be set (use a Stripe-style key, e.g. sk_test_...)")
+		return Config{}, fmt.Errorf("PAYMENT_API_KEY must be set (use a Stripe-style key, e.g. sk_test_...)")
 	}
 	if c.AppEnv == "production" && c.DatabaseURL == "" {
-		return Config{}, fmt.Errorf("FACADE_DATABASE_URL must be set in production; memory storage is test/development only")
+		return Config{}, fmt.Errorf("PAYMENT_DATABASE_URL must be set in production; memory storage is test/development only")
 	}
 	if c.AppEnv == "production" && c.Webhook.SigningSecretAuto {
 		return Config{}, fmt.Errorf("WEBHOOK_SIGNING_SECRET must be set in production")
 	}
 	if c.ActiveGateway == "midtrans" && c.Midtrans.ServerKey == "" {
-		return Config{}, fmt.Errorf("MIDTRANS_SERVER_KEY must be set when FACADE_GATEWAY=midtrans")
+		return Config{}, fmt.Errorf("MIDTRANS_SERVER_KEY must be set when PAYMENT_GATEWAY=midtrans")
 	}
 	if c.ActiveGateway == "xendit" && (c.Xendit.SecretKey == "" || c.Xendit.WebhookToken == "") {
-		return Config{}, fmt.Errorf("XENDIT_SECRET_KEY and XENDIT_WEBHOOK_TOKEN must be set when FACADE_GATEWAY=xendit")
+		return Config{}, fmt.Errorf("XENDIT_SECRET_KEY and XENDIT_WEBHOOK_TOKEN must be set when PAYMENT_GATEWAY=xendit")
 	}
 	if c.ActiveGateway == "doku" && (c.Doku.ClientID == "" || c.Doku.SecretKey == "") {
-		return Config{}, fmt.Errorf("DOKU_CLIENT_ID and DOKU_SECRET_KEY must be set when FACADE_GATEWAY=doku")
+		return Config{}, fmt.Errorf("DOKU_CLIENT_ID and DOKU_SECRET_KEY must be set when PAYMENT_GATEWAY=doku")
 	}
 	if c.ActiveGateway == "mayar" && (c.Mayar.APIKey == "" || c.Mayar.WebhookToken == "") {
-		return Config{}, fmt.Errorf("MAYAR_API_KEY and MAYAR_WEBHOOK_TOKEN must be set when FACADE_GATEWAY=mayar")
+		return Config{}, fmt.Errorf("MAYAR_API_KEY and MAYAR_WEBHOOK_TOKEN must be set when PAYMENT_GATEWAY=mayar")
 	}
 	return c, nil
 }
@@ -163,11 +156,4 @@ func randomSigningSecret() (string, error) {
 		return "", err
 	}
 	return "whsec_" + hex.EncodeToString(b[:]), nil
-}
-
-func getenv(k, def string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return def
 }
