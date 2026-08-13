@@ -19,15 +19,18 @@ type Store interface {
 	Put(pi *PaymentIntent)
 	Get(id string) (*PaymentIntent, error)
 	GetByGatewayReference(gwRef string) (*PaymentIntent, error)
+	ListIntents(accountID string, limit int) []*PaymentIntent
 
 	// Checkout sessions
 	PutSession(s *Session)
 	GetSession(id string) (*Session, error)
 	GetSessionByPaymentIntent(piID string) (*Session, error)
+	ListSessions(accountID string, limit int) []*Session
 
 	// Customers
 	PutCustomer(c *Customer)
 	GetCustomer(id string) (*Customer, error)
+	ListCustomers(accountID string, limit int) []*Customer
 
 	// Refunds
 	PutRefund(r *Refund)

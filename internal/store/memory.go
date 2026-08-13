@@ -622,3 +622,63 @@ func (m *Memory) ListWebhooks() []*WebhookDelivery {
 	sort.Slice(out, func(i, j int) bool { return out[i].Created < out[j].Created })
 	return out
 }
+
+// ListIntents returns all PaymentIntents sorted by creation time descending.
+func (m *Memory) ListIntents(accountID string, limit int) []*PaymentIntent {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var list []*PaymentIntent
+	for _, pi := range m.intents {
+		if accountID == "" || pi.AccountID == accountID {
+			cp := *pi
+			list = append(list, &cp)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Created > list[j].Created
+	})
+	if limit > 0 && len(list) > limit {
+		list = list[:limit]
+	}
+	return list
+}
+
+// ListCustomers returns all Customers sorted by creation time descending.
+func (m *Memory) ListCustomers(accountID string, limit int) []*Customer {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var list []*Customer
+	for _, c := range m.customers {
+		if accountID == "" || c.AccountID == accountID {
+			cp := *c
+			list = append(list, &cp)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Created > list[j].Created
+	})
+	if limit > 0 && len(list) > limit {
+		list = list[:limit]
+	}
+	return list
+}
+
+// ListSessions returns all Sessions sorted by creation time descending.
+func (m *Memory) ListSessions(accountID string, limit int) []*Session {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var list []*Session
+	for _, s := range m.sessions {
+		if accountID == "" || s.AccountID == accountID {
+			cp := *s
+			list = append(list, &cp)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Created > list[j].Created
+	})
+	if limit > 0 && len(list) > limit {
+		list = list[:limit]
+	}
+	return list
+}

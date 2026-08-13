@@ -361,3 +361,21 @@ func collectPaymentMethodTypes(r *http.Request) []string {
 	}
 	return out
 }
+
+func (s *Server) listPaymentIntents(w http.ResponseWriter, r *http.Request) {
+	accID := account.From(r.Context())
+	intents := s.store.ListIntents(accID, 100)
+	var data []*stripePaymentIntent
+	for _, pi := range intents {
+		data = append(data, toStripeResponse(pi))
+	}
+	if data == nil {
+		data = []*stripePaymentIntent{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"object":   "list",
+		"data":     data,
+		"has_more": false,
+		"url":      "/v1/payment_intents",
+	})
+}

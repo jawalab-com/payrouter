@@ -63,8 +63,9 @@ func (s *Server) routes() {
 	})
 	s.mux.HandleFunc("GET /health/ready", s.healthReady)
 
-	// Payment Intents (create/retrieve/confirm).
+	// Payment Intents (create/retrieve/list/confirm).
 	s.mux.HandleFunc("POST /v1/payment_intents", s.auth(s.idempotency("payment_intents.create", s.createPaymentIntent)))
+	s.mux.HandleFunc("GET /v1/payment_intents", s.auth(s.listPaymentIntents))
 	s.mux.HandleFunc("GET /v1/payment_intents/{id}", s.auth(s.retrievePaymentIntent))
 	s.mux.HandleFunc("POST /v1/payment_intents/{id}/confirm", s.auth(s.idempotency("payment_intents.confirm", s.confirmPaymentIntent)))
 	s.mux.HandleFunc("POST /v1/refunds", s.auth(s.idempotency("refunds.create", s.createRefund)))
@@ -77,6 +78,7 @@ func (s *Server) routes() {
 	// Catalog (customers, products, prices) is durable and account-scoped as of
 	// Phase 5D part 1, registered in every mode.
 	s.mux.HandleFunc("POST /v1/customers", s.auth(s.createCustomer))
+	s.mux.HandleFunc("GET /v1/customers", s.auth(s.listCustomers))
 	s.mux.HandleFunc("GET /v1/customers/{id}", s.auth(s.retrieveCustomer))
 	s.mux.HandleFunc("POST /v1/products", s.auth(s.createProduct))
 	s.mux.HandleFunc("GET /v1/products/{id}", s.auth(s.retrieveProduct))
@@ -86,6 +88,7 @@ func (s *Server) routes() {
 	// Checkout Sessions (redirect/hosted — the natural analog for all four gateways).
 	// Durable and account-scoped as of Phase 5D part 2.
 	s.mux.HandleFunc("POST /v1/checkout/sessions", s.auth(s.createCheckoutSession))
+	s.mux.HandleFunc("GET /v1/checkout/sessions", s.auth(s.listCheckoutSessions))
 	s.mux.HandleFunc("GET /v1/checkout/sessions/{id}", s.auth(s.retrieveCheckoutSession))
 
 	// Subscriptions & Invoices (recurring — durable and account-scoped as of 5D part 2).

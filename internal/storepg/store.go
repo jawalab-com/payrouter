@@ -421,3 +421,15 @@ func wrapNotFound(err error) error {
 	}
 	return err
 }
+
+func (s *Store) ListIntents(accountID string, limit int) []*store.PaymentIntent {
+	return s.mem.ListIntents(accountID, limit)
+}
+
+func (s *Store) ListCustomers(accountID string, limit int) []*store.Customer {
+	return s.mem.ListCustomers(accountID, limit)
+}
+
+func (s *Store) ListSessions(accountID string, limit int) []*store.Session {
+	return s.mem.ListSessions(accountID, limit)
+}

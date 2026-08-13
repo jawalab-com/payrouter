@@ -48,6 +48,24 @@ func (s *Server) retrieveCustomer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toStripeCustomer(c))
 }
 
+func (s *Server) listCustomers(w http.ResponseWriter, r *http.Request) {
+	accID := account.From(r.Context())
+	customers := s.store.ListCustomers(accID, 100)
+	var data []*stripeCustomer
+	for _, c := range customers {
+		data = append(data, toStripeCustomer(c))
+	}
+	if data == nil {
+		data = []*stripeCustomer{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"object":   "list",
+		"data":     data,
+		"has_more": false,
+		"url":      "/v1/customers",
+	})
+}
+
 func toStripeCustomer(c *store.Customer) *stripeCustomer {
 	return &stripeCustomer{
 		ID:       c.ID,

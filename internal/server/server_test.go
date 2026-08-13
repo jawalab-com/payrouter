@@ -117,6 +117,37 @@ func TestInvalidAmount(t *testing.T) {
 	}
 }
 
+func TestListEndpoints(t *testing.T) {
+	srv := newTestServer(t)
+
+	// List PaymentIntents
+	req := httptest.NewRequest(http.MethodGet, "/v1/payment_intents", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_x")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"object":"list"`) {
+		t.Fatalf("list payment_intents failed: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// List Customers
+	req2 := httptest.NewRequest(http.MethodGet, "/v1/customers", nil)
+	req2.Header.Set("Authorization", "Bearer sk_test_x")
+	rec2 := httptest.NewRecorder()
+	srv.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK || !strings.Contains(rec2.Body.String(), `"object":"list"`) {
+		t.Fatalf("list customers failed: %d %s", rec2.Code, rec2.Body.String())
+	}
+
+	// List Checkout Sessions
+	req3 := httptest.NewRequest(http.MethodGet, "/v1/checkout/sessions", nil)
+	req3.Header.Set("Authorization", "Bearer sk_test_x")
+	rec3 := httptest.NewRecorder()
+	srv.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusOK || !strings.Contains(rec3.Body.String(), `"object":"list"`) {
+		t.Fatalf("list checkout sessions failed: %d %s", rec3.Code, rec3.Body.String())
+	}
+}
+
 func extractID(body string) string {
 	i := strings.Index(body, `"id":"pi_`)
 	if i < 0 {

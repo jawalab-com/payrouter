@@ -260,6 +260,24 @@ func (s *Server) retrieveCheckoutSession(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, toStripeCheckoutSession(sess))
 }
 
+func (s *Server) listCheckoutSessions(w http.ResponseWriter, r *http.Request) {
+	accID := account.From(r.Context())
+	sessions := s.store.ListSessions(accID, 100)
+	var data []*stripeCheckoutSession
+	for _, sess := range sessions {
+		data = append(data, toStripeCheckoutSession(sess))
+	}
+	if data == nil {
+		data = []*stripeCheckoutSession{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"object":   "list",
+		"data":     data,
+		"has_more": false,
+		"url":      "/v1/checkout/sessions",
+	})
+}
+
 func toStripeCheckoutSession(s *store.Session) *stripeCheckoutSession {
 	var details *stripeSessionCustomerDetails
 	if s.CustomerEmail != "" {
