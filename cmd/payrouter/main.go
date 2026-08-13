@@ -151,6 +151,7 @@ func selectGateway(cfg config.Config) (gateway.Gateway, error) {
 			case "doku":
 				a := doku.New(cfg.Doku.ClientID, cfg.Doku.SecretKey, cfg.Doku.Sandbox)
 				a.SetBaseURL(cfg.Doku.BaseURL)
+				enableDokuSNAP(a, cfg)
 				return a, true
 			case "mayar":
 				a := mayar.New(cfg.Mayar.APIKey, cfg.Mayar.WebhookToken, cfg.Mayar.Sandbox)
@@ -180,6 +181,7 @@ func selectGateway(cfg config.Config) (gateway.Gateway, error) {
 	case "doku":
 		a := doku.New(cfg.Doku.ClientID, cfg.Doku.SecretKey, cfg.Doku.Sandbox)
 		a.SetBaseURL(cfg.Doku.BaseURL)
+		enableDokuSNAP(a, cfg)
 		return a, nil
 	case "mayar":
 		a := mayar.New(cfg.Mayar.APIKey, cfg.Mayar.WebhookToken, cfg.Mayar.Sandbox)
@@ -194,3 +196,20 @@ func selectGateway(cfg config.Config) (gateway.Gateway, error) {
 type UnknownGatewayError string
 
 func (e UnknownGatewayError) Error() string { return "unknown gateway: " + string(e) }
+
+// enableDokuSNAP turns on DOKU's direct QRIS issuance when SNAP credentials are
+// configured. It is deliberately non-fatal: without SNAP the adapter reports no
+// instrument support and payments fall back to the hosted Checkout page, so a
+// deployment that has not yet registered an RSA key still works.
+func enableDokuSNAP(a *doku.Adapter, cfg config.Config) {
+	if cfg.Doku.PrivateKeyPEM == "" {
+		slog.Debug("doku: SNAP not configured; QRIS will use the hosted checkout page",
+			"hint", "set DOKU_PRIVATE_KEY (or DOKU_PRIVATE_KEY_FILE), DOKU_MERCHANT_ID and DOKU_TERMINAL_ID")
+		return
+	}
+	if err := a.EnableSNAP([]byte(cfg.Doku.PrivateKeyPEM), cfg.Doku.MerchantID, cfg.Doku.TerminalID); err != nil {
+		slog.Warn("doku: SNAP credentials rejected; falling back to hosted checkout", "error", err)
+		return
+	}
+	slog.Info("doku: SNAP enabled", "direct_instruments", []string{"qris"})
+}

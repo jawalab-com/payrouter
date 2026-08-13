@@ -42,6 +42,51 @@ type Adapter struct {
 	baseURL         string
 	notificationURL string // Request-Target used to verify inbound notifications
 	httpClient      *http.Client
+
+	// SNAP (Bank Indonesia standard) credentials and token cache, used only by
+	// direct instrument issuance. Nil until EnableSNAP is called, which is what
+	// makes SupportsInstrument report false on an unconfigured adapter rather
+	// than failing at charge time.
+	snap    *snapCredentials
+	session snapSession
+	nowFn   func() time.Time // overridable for deterministic tests
+}
+
+// now returns the current time, honoring a test override.
+func (a *Adapter) now() time.Time {
+	if a.nowFn != nil {
+		return a.nowFn()
+	}
+	return time.Now()
+}
+
+// EnableSNAP supplies the extra credentials DOKU's SNAP APIs require beyond the
+// Checkout API's Client-Id and Secret Key: a PEM-encoded RSA private key whose
+// public half is registered in the DOKU dashboard, plus the merchant and
+// terminal identifiers that appear on QR requests.
+//
+// Until this is called the adapter reports no instrument support and keeps using
+// the hosted Checkout page, so a deployment without SNAP set up degrades to a
+// redirect instead of failing mid-payment.
+func (a *Adapter) EnableSNAP(privateKeyPEM []byte, merchantID, terminalID string) error {
+	key, err := ParsePrivateKey(privateKeyPEM)
+	if err != nil {
+		return err
+	}
+	if merchantID == "" {
+		return errors.New("doku: SNAP requires a merchant id (DOKU_MERCHANT_ID)")
+	}
+	if terminalID == "" {
+		return errors.New("doku: SNAP requires a terminal id (DOKU_TERMINAL_ID)")
+	}
+	a.snap = &snapCredentials{
+		clientID:   a.clientID,
+		secretKey:  a.secretKey,
+		privateKey: key,
+		merchantID: merchantID,
+		terminalID: terminalID,
+	}
+	return nil
 }
 
 // New returns an Adapter for the given DOKU Client-Id and Secret Key (both

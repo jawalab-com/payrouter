@@ -82,6 +82,15 @@ type DokuConfig struct {
 	SecretKey string // merchant DOKU Secret Key (HMAC key)
 	Sandbox   bool   // true to target the DOKU sandbox host (default true for safety)
 	BaseURL   string // optional override for the API base URL
+
+	// SNAP (Bank Indonesia standard) credentials, required only for direct QRIS
+	// issuance. DOKU's SNAP APIs authenticate with an RSA keypair whose public
+	// half is registered in the DOKU dashboard — the Checkout API's Client-Id and
+	// Secret Key alone are not sufficient. When these are absent the adapter keeps
+	// using the hosted Checkout page instead.
+	PrivateKeyPEM string // PEM-encoded RSA private key (PKCS#1 or PKCS#8)
+	MerchantID    string // merchant identifier sent on QR requests
+	TerminalID    string // terminal identifier sent on QR requests
 }
 
 // MayarConfig holds the merchant-supplied (BYO) Mayar credentials: the API Key
@@ -116,6 +125,26 @@ func getenvFloat(key string, defaultVal float64) float64 {
 		return defaultVal
 	}
 	return v
+}
+
+// readKeyMaterial resolves PEM key material from either an inline value or a
+// file path, preferring inline.
+//
+// Environment variables cannot hold real newlines, so an inline PEM arrives with
+// literal backslash-n sequences; those are restored here. A file path suits
+// deployments that mount the key as a secret volume. A path that cannot be read
+// yields "" rather than an error: the adapter then reports no instrument support
+// and falls back to hosted checkout, which is preferable to refusing to boot.
+func readKeyMaterial(inline, path string) string {
+	if v := strings.TrimSpace(inline); v != "" {
+		return strings.ReplaceAll(v, `\n`, "\n")
+	}
+	if p := strings.TrimSpace(path); p != "" {
+		if data, err := os.ReadFile(p); err == nil {
+			return string(data)
+		}
+	}
+	return ""
 }
 
 // splitList parses a comma-separated env value into trimmed, non-empty entries.
@@ -170,6 +199,11 @@ func Load() (Config, error) {
 			SecretKey: os.Getenv("DOKU_SECRET_KEY"),
 			Sandbox:   getenv("DOKU_SANDBOX", "true") != "false",
 			BaseURL:   strings.TrimSpace(os.Getenv("DOKU_BASE_URL")),
+			// The key may be supplied inline (with literal \n escapes, as env vars
+			// cannot carry real newlines) or as a path to a PEM file.
+			PrivateKeyPEM: readKeyMaterial(os.Getenv("DOKU_PRIVATE_KEY"), os.Getenv("DOKU_PRIVATE_KEY_FILE")),
+			MerchantID:    strings.TrimSpace(os.Getenv("DOKU_MERCHANT_ID")),
+			TerminalID:    strings.TrimSpace(os.Getenv("DOKU_TERMINAL_ID")),
 		},
 		Mayar: MayarConfig{
 			APIKey:       os.Getenv("MAYAR_API_KEY"),
