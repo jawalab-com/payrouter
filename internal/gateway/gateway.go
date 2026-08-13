@@ -192,10 +192,17 @@ type QRISInstruction struct {
 }
 
 // VirtualAccountInstruction is a bank transfer destination to display.
+//
+// BillerCode exists for Mandiri, which does not issue a virtual account at all:
+// it uses Bill Payment, where the customer enters a company biller code AND a
+// bill key as two separate inputs at the ATM or in the app. A UI that renders
+// only AccountNumber would leave a Mandiri payer unable to pay, so renderers
+// must show BillerCode alongside it whenever it is set.
 type VirtualAccountInstruction struct {
 	Bank          string // normalized lowercase bank code, e.g. "bca", "bni", "bri", "permata", "mandiri"
-	AccountNumber string // the VA number the customer transfers to
+	AccountNumber string // the VA number to transfer to; for Mandiri this is the bill key
 	AccountName   string // display name on the account, when the provider supplies one
+	BillerCode    string // Mandiri Bill Payment company code; "" for true virtual accounts
 }
 
 // RefundInput describes a refund to issue.
