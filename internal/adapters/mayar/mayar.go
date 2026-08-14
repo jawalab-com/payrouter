@@ -10,31 +10,29 @@
 // callbacks carry Mayar's id and are resolved to an intent via the store's
 // gateway-reference index. The facade never touches money; it only translates.
 //
-// # No direct instrument issuance
+// # Direct instrument issuance (v2 Headless API)
 //
-// This adapter deliberately does NOT implement gateway.InstrumentGateway, so
-// callers fall back to the hosted payment link. Mayar does expose a dynamic QR
-// endpoint — POST /hl/v1/qrcode/create, and POST /hl/v2/qr-codes/create in the
-// V2 API — but neither can be used safely here. Both were checked; V2 only
-// standardizes the response envelope and does not add identifiers:
+// The standalone QR endpoints — POST /hl/v1/qrcode/create and the v2
+// /qr-codes/create — remain UNUSABLE: both accept only an amount and return only
+// {url, amount}, with no transaction id and no reference field, so a QR issued
+// through them cannot be correlated to its webhook (the customer pays, the order
+// is never marked paid). They are deliberately NOT used here.
 //
-//   - The request accepts only an amount. There is no field to carry our pi_
-//     reference.
-//   - The response returns only {url, amount} — an image link and the nominal.
-//     No transaction id, payment id, or reference of any kind.
+// The v2 single-payment endpoint, POST /hl/v2/payments/create, does not have
+// that problem. Verified against the live API: it accepts a paymentMethod
+// ("qris", "va/bsi", "ewallet/dana", ...) and returns data.id, data.transactionId
+// and data.paymentLinkId — three correlation handles — exactly what this adapter
+// needs to resolve payment.received callbacks through the store's reverse index.
+// Direct issuance therefore goes through that endpoint (see instrument.go).
 //
-// Correlation in this adapter depends entirely on Mayar's own id: CreatePayment
-// stores resp.Data.ID as the GatewayReference, and ParseWebhook resolves an
-// inbound payment.received back to a PaymentIntent through that reverse index.
-// A QR created through /qrcode/create yields no id to store, so its eventual
-// webhook would reference a value never recorded and the lookup would fail: the
-// customer pays, and the order is never marked paid. Silent payment loss is a
-// worse outcome than a redirect, so QR issuance stays unimplemented until Mayar
-// exposes either a reference field or an id on that endpoint.
-//
-// Separately, the endpoint returns only a hosted image rather than the raw EMVCo
-// payload, so even with correlation solved it could not be rendered at our own
-// size or offered as copyable text the way Xendit and Midtrans QR codes are.
+// Issuance is OPT-IN: Mayar's payment channels (QRIS, VA, e-wallet) must be
+// enabled on the merchant dashboard first, and validation takes time. Until the
+// operator lists the validated methods in MAYAR_INSTRUMENT_METHODS, SupportsInstrument
+// reports false and callers fall back to the hosted link below — today's behavior
+// unchanged. If a listed method is requested before its channel is actually live,
+// Mayar returns 400 "Payment channel configuration not found", which IssueInstrument
+// maps to ErrInstrumentUnsupported so the caller falls back to redirect rather
+// than failing the checkout.
 package mayar
 
 import (
@@ -45,6 +43,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jawalab-com/payrouter/internal/gateway"
@@ -56,7 +55,10 @@ const (
 	ProdBaseURL    = "https://api.mayar.id"
 	SandboxBaseURL = "https://api.mayar.io"
 
-	createPath = "/hl/v1/payment/create" // Mayar Headless API single payment request endpoint
+	// v2CreatePath is the Mayar Headless v2 single-payment endpoint. It serves
+	// both the hosted link (CreatePayment, no paymentMethod) and direct instrument
+	// issuance (IssueInstrument, with paymentMethod). Mayar is standardized on v2.
+	v2CreatePath = "/hl/v2/payments/create"
 )
 
 // Adapter implements gateway.Gateway against Mayar.
@@ -65,6 +67,11 @@ type Adapter struct {
 	webhookToken string // shared secret verified against ?token= on callbacks
 	baseURL      string
 	httpClient   *http.Client
+
+	// instruments is the opt-in set of methods this adapter may issue directly
+	// via the v2 API. Empty until EnableInstruments is called, which keeps direct
+	// issuance off until the operator has validated the Mayar payment channels.
+	instruments map[gateway.IDPaymentMethodType]bool
 }
 
 // New returns an Adapter for the given Mayar API Key and Webhook Token (both
@@ -98,14 +105,28 @@ func (a *Adapter) SetBaseURL(base string) {
 	}
 }
 
+// EnableInstruments opts the adapter into direct issuance for the given methods
+// via the v2 API. It mirrors DOKU's EnableSNAP: non-fatal and additive. A method
+// is only eligible for instrument routing once it is both passed here AND its
+// payment channel is live on the Mayar dashboard (see the package doc comment).
+func (a *Adapter) EnableInstruments(methods ...gateway.IDPaymentMethodType) {
+	if a.instruments == nil {
+		a.instruments = make(map[gateway.IDPaymentMethodType]bool, len(methods))
+	}
+	for _, m := range methods {
+		a.instruments[m] = true
+	}
+}
+
 // Name implements gateway.Gateway.
 func (a *Adapter) Name() string { return "mayar" }
 
-// CreatePayment creates a Mayar payment link (a hosted checkout page) and returns
-// its URL as the customer's next action. Mayar generates its own payment id
-// (data.id); our pi_ reference is not sent (Mayar has no external-id field), so
-// the stored GatewayReference is Mayar's id and inbound callbacks resolve via the
-// store's gateway-reference index.
+// CreatePayment creates a Mayar payment link (a hosted checkout page) via the v2
+// API and returns its URL as the customer's next action. No paymentMethod is
+// pinned, so the customer chooses a method on Mayar's page. Mayar generates its
+// own payment id (data.id); our pi_ reference is not sent (Mayar has no
+// external-id field), so the stored GatewayReference is Mayar's id and inbound
+// callbacks resolve via the store's gateway-reference index.
 func (a *Adapter) CreatePayment(ctx context.Context, in *gateway.CreatePaymentInput) (*gateway.PaymentResult, error) {
 	if in == nil {
 		return nil, errors.New("mayar: CreatePayment requires a reference")
@@ -136,8 +157,8 @@ func (a *Adapter) CreatePayment(ctx context.Context, in *gateway.CreatePaymentIn
 		}
 	}
 
-	var resp createResponse
-	if err := a.doJSON(ctx, createPath, body, &resp); err != nil {
+	var resp v2CreateResponse
+	if err := a.doJSON(ctx, v2CreatePath, body, &resp); err != nil {
 		return nil, err
 	}
 
@@ -236,7 +257,20 @@ func (a *Adapter) doJSON(ctx context.Context, target string, reqBody map[string]
 		return fmt.Errorf("mayar: read response: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("mayar: POST %s returned HTTP %d", target, resp.StatusCode)
+		// Surface Mayar's own status/message so callers can branch on business
+		// outcomes (e.g. IssueInstrument maps "channel configuration not found"
+		// to ErrInstrumentUnsupported rather than a hard failure).
+		var env struct {
+			StatusCode int    `json:"statusCode"`
+			Messages   string `json:"messages"`
+		}
+		_ = json.Unmarshal(raw, &env) // best-effort: envelope may be absent on transport errors
+		return &apiError{
+			target:  target,
+			http:    resp.StatusCode,
+			status:  env.StatusCode,
+			message: env.Messages,
+		}
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
@@ -248,13 +282,50 @@ func (a *Adapter) doJSON(ctx context.Context, target string, reqBody map[string]
 
 // --- Mayar request/response structs -----------------------------------------
 
-type createResponse struct {
+// apiError carries Mayar's own envelope status alongside the HTTP status, so
+// callers can distinguish business-level rejections (e.g. an unconfigured
+// payment channel) from transport failures.
+type apiError struct {
+	target  string
+	http    int
+	status  int
+	message string
+}
+
+func (e *apiError) Error() string {
+	if e.message != "" {
+		return fmt.Sprintf("mayar: POST %s returned HTTP %d (statusCode %d): %s", e.target, e.http, e.status, e.message)
+	}
+	return fmt.Sprintf("mayar: POST %s returned HTTP %d", e.target, e.http)
+}
+
+// channelUnavailable reports whether this error is Mayar signalling that the
+// requested payment channel is not enabled — which means "fall back to redirect",
+// not "fail the checkout".
+func (e *apiError) channelUnavailable() bool {
+	m := strings.ToLower(e.message)
+	return strings.Contains(m, "not available or disabled") ||
+		strings.Contains(m, "channel configuration not found") ||
+		strings.Contains(m, "payment channel configuration not found")
+}
+
+// v2CreateResponse is the subset of Mayar's v2 /payments/create response we act
+// on. The same endpoint serves hosted links (CreatePayment) and pinned-method
+// issuance (IssueInstrument); the difference is whether paymentMethod was sent,
+// which determines whether PaymentDetail is populated. PaymentDetail is kept raw
+// because its shape varies by method — it is interpreted in instrument.go.
+type v2CreateResponse struct {
 	StatusCode int    `json:"statusCode"`
 	Messages   string `json:"messages"`
 	Data       struct {
-		ID            string `json:"id"`
-		TransactionID string `json:"transactionId"`
-		Link          string `json:"link"`
+		ID            string          `json:"id"`
+		TransactionID string          `json:"transactionId"`
+		PaymentLinkID string          `json:"paymentLinkId"`
+		Link          string          `json:"link"`
+		Amount        int64           `json:"amount"`
+		Status        string          `json:"status"`
+		ExpiredAt     string          `json:"expiredAt"`
+		PaymentDetail json.RawMessage `json:"paymentDetail"`
 	} `json:"data"`
 }
 

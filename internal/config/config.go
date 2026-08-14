@@ -111,6 +111,13 @@ type MayarConfig struct {
 	WebhookToken string // shared secret verified against ?token= on callbacks
 	Sandbox      bool   // true to target the Mayar sandbox host (default true for safety)
 	BaseURL      string // optional override for the API base URL
+
+	// InstrumentMethods opts Mayar into direct instrument issuance (the v2
+	// /payments/create API) for the named methods. Accepts a comma list of
+	// "qris" and/or "virtual_account". Empty (default) keeps Mayar on the hosted
+	// payment link — set it only once the matching channel has been validated on
+	// the Mayar dashboard, since issuance otherwise falls back to redirect.
+	InstrumentMethods []string
 }
 
 // getenv returns os.Getenv(key) if non-empty, otherwise defaultVal.
@@ -220,10 +227,11 @@ func Load() (Config, error) {
 			PartnerServiceID: strings.TrimSpace(os.Getenv("DOKU_PARTNER_SERVICE_ID")),
 		},
 		Mayar: MayarConfig{
-			APIKey:       os.Getenv("MAYAR_API_KEY"),
-			WebhookToken: os.Getenv("MAYAR_WEBHOOK_TOKEN"),
-			Sandbox:      getenv("MAYAR_SANDBOX", "true") != "false",
-			BaseURL:      strings.TrimSpace(os.Getenv("MAYAR_BASE_URL")),
+			APIKey:            os.Getenv("MAYAR_API_KEY"),
+			WebhookToken:      os.Getenv("MAYAR_WEBHOOK_TOKEN"),
+			Sandbox:           getenv("MAYAR_SANDBOX", "true") != "false",
+			BaseURL:           strings.TrimSpace(os.Getenv("MAYAR_BASE_URL")),
+			InstrumentMethods: splitList(os.Getenv("MAYAR_INSTRUMENT_METHODS")),
 		},
 		Webhook: WebhookConfig{
 			SigningSecret: strings.TrimSpace(os.Getenv("WEBHOOK_SIGNING_SECRET")),

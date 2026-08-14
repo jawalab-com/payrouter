@@ -67,8 +67,8 @@ func TestCreatePayment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreatePayment: %v", err)
 	}
-	if gotMethod != http.MethodPost || gotPath != "/hl/v1/payment/create" {
-		t.Errorf("request = %s %s; want POST /hl/v1/payment/create", gotMethod, gotPath)
+	if gotMethod != http.MethodPost || gotPath != "/hl/v2/payments/create" {
+		t.Errorf("request = %s %s; want POST /hl/v2/payments/create", gotMethod, gotPath)
 	}
 	if gotAuth != "Bearer "+testAPIKey {
 		t.Errorf("auth = %q; want Bearer %s", gotAuth, testAPIKey)

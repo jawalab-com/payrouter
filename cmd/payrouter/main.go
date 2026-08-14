@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -156,6 +157,7 @@ func selectGateway(cfg config.Config) (gateway.Gateway, error) {
 			case "mayar":
 				a := mayar.New(cfg.Mayar.APIKey, cfg.Mayar.WebhookToken, cfg.Mayar.Sandbox)
 				a.SetBaseURL(cfg.Mayar.BaseURL)
+				enableMayarInstruments(a, cfg)
 				return a, true
 			}
 			return nil, false
@@ -186,6 +188,7 @@ func selectGateway(cfg config.Config) (gateway.Gateway, error) {
 	case "mayar":
 		a := mayar.New(cfg.Mayar.APIKey, cfg.Mayar.WebhookToken, cfg.Mayar.Sandbox)
 		a.SetBaseURL(cfg.Mayar.BaseURL)
+		enableMayarInstruments(a, cfg)
 		return a, nil
 	default:
 		return nil, UnknownGatewayError(cfg.ActiveGateway)
@@ -226,4 +229,36 @@ func enableDokuSNAP(a *doku.Adapter, cfg config.Config) {
 		enabled = append(enabled, "virtual_account")
 	}
 	slog.Info("doku: SNAP enabled", "direct_instruments", enabled)
+}
+
+// enableMayarInstruments turns on Mayar's direct instrument issuance (the v2
+// /payments/create API) for the methods listed in MAYAR_INSTRUMENT_METHODS. It is
+// deliberately opt-in: Mayar's QRIS/VA channels must be validated on the merchant
+// dashboard first, and that takes time. With no methods listed the adapter reports
+// no instrument support and payments fall back to the hosted payment link, so a
+// deployment that has not yet enabled a channel still works unchanged.
+func enableMayarInstruments(a *mayar.Adapter, cfg config.Config) {
+	var methods []gateway.IDPaymentMethodType
+	var labels []string
+	for _, m := range cfg.Mayar.InstrumentMethods {
+		switch strings.ToLower(strings.TrimSpace(m)) {
+		case "qris", "id_qris":
+			methods = append(methods, gateway.IDQRIS)
+			labels = append(labels, "qris")
+		case "virtual_account", "virtualaccount", "va", "id_virtual_account":
+			methods = append(methods, gateway.IDVirtualAccount)
+			labels = append(labels, "virtual_account")
+		default:
+			slog.Warn("mayar: ignoring unknown MAYAR_INSTRUMENT_METHODS entry", "method", m)
+		}
+	}
+	if len(methods) == 0 {
+		slog.Debug("mayar: direct instrument issuance not enabled",
+			"hint", "set MAYAR_INSTRUMENT_METHODS (e.g. qris,virtual_account) once channels are validated on the Mayar dashboard")
+		return
+	}
+	a.EnableInstruments(methods...)
+	slog.Info("mayar: direct instrument issuance enabled",
+		"direct_instruments", labels,
+		"hint", "ensure each channel is live on the Mayar dashboard; issuance falls back to redirect otherwise")
 }
