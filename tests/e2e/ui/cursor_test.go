@@ -4,10 +4,9 @@ package ui
 
 // supervisionCursor is injected before every page load. It paints a dot that
 // tracks the mouse and a ripple on each click, so when a human supervises a
-// headed run (or reviews the video) they can see exactly what Playwright is
-// doing. It is purely decorative: pointer-events:none, top z-index, and it
-// self-skips if already installed, so it never interferes with the page under
-// test.
+// headed run they can see exactly what Playwright is doing. It is purely
+// decorative: pointer-events:none, top z-index, and it self-skips if already
+// installed, so it never interferes with the page under test.
 const supervisionCursor = `(function () {
   if (window.__pwSupervisor) return;
   window.__pwSupervisor = true;

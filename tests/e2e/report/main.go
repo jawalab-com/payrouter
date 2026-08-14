@@ -6,7 +6,7 @@
 //
 //	-api <file>        JSONL emitted by lib/report.sh (one {layer,suite,name,status,duration_ms,error} per line).
 //	-ui  <file>        Raw `go test -json` output from the Playwright UI layer.
-//	-artifacts <dir>   UI screenshots/video dir (linked from the HTML when present).
+//	-artifacts <dir>   UI screenshots dir (linked from the HTML when present).
 //	-out  <dir>        Where to write e2e-report.xml and e2e-report.html.
 //
 // Either -api or -ui may be omitted; the report then covers whichever layers have
@@ -59,7 +59,7 @@ func main() {
 	var (
 		apiFile      = flag.String("api", "", "api.jsonl from lib/report.sh")
 		uiFile       = flag.String("ui", "", "go test -json output from the UI layer")
-		artifactsDir = flag.String("artifacts", "", "UI screenshots/video directory")
+		artifactsDir = flag.String("artifacts", "", "UI screenshots directory")
 		outDir       = flag.String("out", ".", "output directory for the report files")
 		title        = flag.String("title", "PayRouter e2e", "report title")
 		openReport   = flag.Bool("open", false, "attempt to open the HTML report in the default browser")
@@ -70,7 +70,6 @@ func main() {
 	cases = append(cases, parseAPI(*apiFile)...)
 	cases = append(cases, parseUI(*uiFile)...)
 
-	videos := collectVideos(*artifactsDir)
 	attachScreenshots(cases, *artifactsDir)
 
 	sort.SliceStable(cases, func(i, j int) bool {
@@ -92,7 +91,7 @@ func main() {
 	if err := writeJUnit(xmlPath, cases, *title); err != nil {
 		fatalf("write JUnit: %v", err)
 	}
-	if err := writeHTML(htmlPath, cases, videos, *title, *artifactsDir, *outDir); err != nil {
+	if err := writeHTML(htmlPath, cases, *title, *artifactsDir, *outDir); err != nil {
 		fatalf("write HTML: %v", err)
 	}
 
@@ -221,11 +220,6 @@ func uiSuite(pkg string) string {
 
 // --- artifacts ---------------------------------------------------------------
 
-// collectVideos returns relative .webm paths in the artifacts dir, newest first.
-func collectVideos(artifactsDir string) []string {
-	return globRel(artifactsDir, ".webm")
-}
-
 // attachScreenshots links each UI test to its step screenshots, matched by the
 // sanitized test name prefix the test binary writes (see snap() in the UI tests).
 func attachScreenshots(cases []testCase, artifactsDir string) {
@@ -333,10 +327,10 @@ func buildSuites(cases []testCase) []junitSuite {
 
 // --- HTML --------------------------------------------------------------------
 
-func writeHTML(path string, cases []testCase, videos []string, title, artifactsDir, outDir string) error {
+func writeHTML(path string, cases []testCase, title, artifactsDir, outDir string) error {
 	relArtifacts, err := filepath.Rel(outDir, artifactsDir)
 	if err != nil || artifactsDir == "" {
-		relArtifacts = "" // no screenshot/video links when the dir is unknown
+		relArtifacts = "" // no screenshot links when the dir is unknown
 	}
 
 	type rowView struct {
@@ -373,11 +367,6 @@ func writeHTML(path string, cases []testCase, videos []string, title, artifactsD
 		rows = append(rows, rv)
 	}
 
-	vids := make([]string, len(videos))
-	for i, v := range videos {
-		vids[i] = filepath.ToSlash(filepath.Join(relArtifacts, v))
-	}
-
 	funcMap := template.FuncMap{"firstLine": firstLine}
 	tmpl := template.Must(template.New("report").Funcs(funcMap).Parse(reportTmpl))
 
@@ -390,7 +379,7 @@ func writeHTML(path string, cases []testCase, videos []string, title, artifactsD
 		"Title": title, "Generated": time.Now().Format("2 Jan 2006 15:04:05 MST"),
 		"Total": len(rows), "Pass": pass, "Fail": fail, "Skip": skip,
 		"Duration": total.Round(time.Millisecond).String(),
-		"Rows": rows, "Videos": vids, "HasArtifacts": relArtifacts != "",
+		"Rows": rows,
 	})
 }
 
@@ -472,9 +461,8 @@ type junitFailure struct {
 }
 
 // reportTmpl is the self-contained HTML report. html/template auto-escapes the
-// dynamic values (error text, test names), so only the screenshot/video hrefs —
-// which the generator builds from a controlled artifacts directory — are emitted
-// as raw URLs via the template.URL-typed .Shots/.Videos fields below.
+// dynamic values (error text, test names); screenshot hrefs are built by the
+// generator from a controlled artifacts directory and emitted into <a>/<img>.
 const reportTmpl = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -513,8 +501,6 @@ const reportTmpl = `<!DOCTYPE html>
   .err { color: #991b1b; white-space: pre-wrap; }
   .shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
   .shots a img { width: 160px; border: 1px solid #e3e6ea; border-radius: 4px; display: block; }
-  .shots .webm a { display: inline-block; padding: 4px 8px; background:#1f2937; color:#fff;
-                   border-radius: 4px; text-decoration: none; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -553,15 +539,6 @@ const reportTmpl = `<!DOCTYPE html>
     </tr>
   {{end}}
   {{if $layer}}</table></div>{{end}}
-
-  {{if and .HasArtifacts .Videos}}
-  <div class="layer">
-    <h2>UI recordings</h2>
-    <div class="shots webm">
-      {{range .Videos}}<a href="{{.}}">▶ {{.}}</a>{{end}}
-    </div>
-  </div>
-  {{end}}
 </main>
 </body>
 </html>`

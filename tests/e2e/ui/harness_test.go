@@ -11,11 +11,10 @@
 // and expired transitions — is exercised without live gateway credentials or a
 // separate process.
 //
-// Recording (screenshots + video) and a cursor/ripple overlay are OFF by default
+// Recording (screenshots) and a cursor/ripple overlay are OFF by default
 // for fast, headless CI. Set E2E_UI_RECORD=1 to turn them on: the browser runs
-// headed, every step is screenshotted, video is captured, and a fake cursor +
-// click ripples are injected so a human watching (or reviewing the video) can
-// follow what Playwright is doing.
+// headed, every step is screenshotted, and a fake cursor + click ripples are
+// injected so a human watching can follow what Playwright is doing.
 package ui
 
 import (
@@ -41,7 +40,7 @@ import (
 
 var (
 	pw           *playwright.Playwright
-	record       bool // E2E_UI_RECORD=1: headed + screenshots + video + cursor
+	record       bool // E2E_UI_RECORD=1: headed + screenshots + cursor
 	slowMo       float64
 	artifactsDir string
 )
@@ -201,7 +200,7 @@ func (e *checkoutEnv) markExpired(t *testing.T, sessionID string) {
 
 // newPage launches Chromium and returns a page with clipboard permission and the
 // supervision cursor already injected. The browser/context/page are closed on
-// test cleanup; in record mode the context close also flushes the video file.
+// test cleanup.
 func newPage(t *testing.T) playwright.Page {
 	t.Helper()
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
@@ -211,18 +210,10 @@ func newPage(t *testing.T) playwright.Page {
 	if err != nil {
 		t.Fatalf("launch browser: %v", err)
 	}
-	ctxOpts := playwright.BrowserNewContextOptions{
+	ctx, err := browser.NewContext(playwright.BrowserNewContextOptions{
 		Permissions: []string{"clipboard-read", "clipboard-write"},
 		Viewport:    &playwright.Size{Width: 1280, Height: 800},
-	}
-	if record {
-		dir, _ := filepath.Abs(artifactsDir)
-		ctxOpts.RecordVideo = &playwright.RecordVideo{
-			Dir:  playwright.String(dir),
-			Size: &playwright.Size{Width: 1280, Height: 800},
-		}
-	}
-	ctx, err := browser.NewContext(ctxOpts)
+	})
 	if err != nil {
 		t.Fatalf("new context: %v", err)
 	}
@@ -234,7 +225,6 @@ func newPage(t *testing.T) playwright.Page {
 		t.Fatalf("new page: %v", err)
 	}
 	t.Cleanup(func() {
-		// Close the context before the browser so the recorded video is flushed.
 		_ = ctx.Close()
 		_ = browser.Close()
 	})

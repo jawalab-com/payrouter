@@ -8,7 +8,7 @@
 # Usage:
 #   ./tests/e2e/ui/run-ui.sh               # run headless, fast (default)
 #   ./tests/e2e/ui/run-ui.sh --install     # first time: download Chromium, then run
-#   ./tests/e2e/ui/run-ui.sh --record      # headed + screenshots + video + cursor
+#   ./tests/e2e/ui/run-ui.sh --record      # headed + screenshots + cursor
 #   ./tests/e2e/ui/run-ui.sh --install --record
 #
 # Environment:
@@ -16,7 +16,7 @@
 #   E2E_UI_RECORD=1    same as --record
 #   E2E_UI_SLOWMO=N    milliseconds to slow each step (default 120 in record mode)
 #
-# Artifacts (only when recording): tests/e2e/ui/artifacts/*.png + *.webm
+# Artifacts (only when recording): tests/e2e/ui/artifacts/*.png
 #
 # Install Chromium only (no test run), e.g. to warm a CI image:
 #   E2E_UI_INSTALL=1 go test -tags e2e_ui -run '^$' ./tests/e2e/ui/...
@@ -52,7 +52,7 @@ if [[ "$INSTALL" == "1" ]]; then export E2E_UI_INSTALL=1; else unset E2E_UI_INST
 
 if [[ "$RECORD" == "1" ]]; then
   export E2E_UI_RECORD=1
-  echo ">> running UI e2e (HEADED + screenshots + video + cursor)"
+  echo ">> running UI e2e (HEADED + screenshots + cursor)"
 else
   echo ">> running UI e2e (headless)"
 fi

@@ -33,20 +33,20 @@ progressive-enhancement copy button, and the live-status JS.
 # Headless, fast (CI default)
 ./tests/e2e/ui/run-ui.sh
 
-# Headed + screenshots + video + a fake cursor/click-ripple overlay, so a human
-# can watch or review the recording and follow what Playwright does
+# Headed + screenshots + a fake cursor/click-ripple overlay, so a human
+# can watch and follow what Playwright does
 ./tests/e2e/ui/run-ui.sh --record
 ```
 
-Artifacts (screenshots + `.webm` video) land in `artifacts/` and are gitignored;
-they are produced **only** in record mode.
+Screenshots land in `artifacts/` (gitignored) and are produced **only** in
+record mode.
 
 ## Environment variables
 
 | Var | Effect |
 |-----|--------|
 | `E2E_UI_INSTALL=1` | Install Chromium (same as `--install`) |
-| `E2E_UI_RECORD=1` | Headed + screenshots + video + cursor (same as `--record`) |
+| `E2E_UI_RECORD=1` | Headed + screenshots + cursor (same as `--record`) |
 | `E2E_UI_SLOWMO=N` | Slow each Playwright step by N ms (default 120 in record mode) |
 
 ## How it works
@@ -60,8 +60,8 @@ the same state change a real gateway callback would produce.
 
 Recording and the supervision cursor are **off by default** so the common run is
 fast and headless. Turning on `E2E_UI_RECORD` switches to headed mode, captures a
-screenshot per step and a video of the whole run, and injects a mouse-following
-dot plus click ripples (`cursor_test.go`) so the recording is easy to follow.
+screenshot per step, and injects a mouse-following dot plus click ripples
+(`cursor_test.go`) so a headed run is easy to follow.
 
 ## Relationship to the bash harness
 

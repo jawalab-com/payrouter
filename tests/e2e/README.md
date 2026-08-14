@@ -22,7 +22,7 @@ layer still leaves you a full report covering both.
 
 ```bash
 ./tests/e2e/run-all.sh                 # API + UI (headless)
-./tests/e2e/run-all.sh --record        # UI headed, with screenshots/video
+./tests/e2e/run-all.sh --record        # UI headed, with screenshots
 ./tests/e2e/run-all.sh --install       # first run: download Chromium for the UI layer
 ./tests/e2e/run-all.sh --open          # open the HTML report in a browser when done
 E2E_SKIP_UI=1  ./tests/e2e/run-all.sh  # API only (no Chromium needed)
@@ -37,7 +37,7 @@ E2E_SKIP_API=1 ./tests/e2e/run-all.sh  # UI only
 
 The report generator (`tests/e2e/report`) consumes the bash layer's `api.jsonl`
 (per-scenario JSON emitted by `lib/report.sh`) and the UI layer's `go test -json`
-output, links UI screenshots/video into the HTML, and exits non-zero if any case
+output, links UI screenshots into the HTML, and exits non-zero if any case
 failed. It can also be run standalone:
 
 ```bash
