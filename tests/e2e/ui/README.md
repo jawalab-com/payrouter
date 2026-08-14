@@ -33,20 +33,24 @@ progressive-enhancement copy button, and the live-status JS.
 # Headless, fast (CI default)
 ./tests/e2e/ui/run-ui.sh
 
+# Headless, but capture a screenshot per step (silent — no browser window opens)
+./tests/e2e/ui/run-ui.sh --screenshots
+
 # Headed + screenshots + a fake cursor/click-ripple overlay, so a human
 # can watch and follow what Playwright does
 ./tests/e2e/ui/run-ui.sh --record
 ```
 
-Screenshots land in `artifacts/` (gitignored) and are produced **only** in
-record mode.
+Screenshots land in `artifacts/` (gitignored) and are produced with either
+`--screenshots` or `--record`.
 
 ## Environment variables
 
 | Var | Effect |
 |-----|--------|
 | `E2E_UI_INSTALL=1` | Install Chromium (same as `--install`) |
-| `E2E_UI_RECORD=1` | Headed + screenshots + cursor (same as `--record`) |
+| `E2E_UI_SCREENSHOTS=1` | Headless + a screenshot per step (same as `--screenshots`) |
+| `E2E_UI_RECORD=1` | Headed + screenshots + cursor (same as `--record`; implies screenshots) |
 | `E2E_UI_SLOWMO=N` | Slow each Playwright step by N ms (default 120 in record mode) |
 
 ## How it works

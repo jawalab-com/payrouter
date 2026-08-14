@@ -8,15 +8,17 @@
 # Usage:
 #   ./tests/e2e/ui/run-ui.sh               # run headless, fast (default)
 #   ./tests/e2e/ui/run-ui.sh --install     # first time: download Chromium, then run
-#   ./tests/e2e/ui/run-ui.sh --record      # headed + screenshots + cursor
+#   ./tests/e2e/ui/run-ui.sh --screenshots # headless, but capture a PNG per step
+#   ./tests/e2e/ui/run-ui.sh --record      # headed + screenshots + cursor (live supervision)
 #   ./tests/e2e/ui/run-ui.sh --install --record
 #
 # Environment:
-#   E2E_UI_INSTALL=1   same as --install
-#   E2E_UI_RECORD=1    same as --record
-#   E2E_UI_SLOWMO=N    milliseconds to slow each step (default 120 in record mode)
+#   E2E_UI_INSTALL=1     same as --install
+#   E2E_UI_SCREENSHOTS=1 same as --screenshots (silent, headless PNG capture)
+#   E2E_UI_RECORD=1      same as --record (headed; implies screenshots)
+#   E2E_UI_SLOWMO=N      milliseconds to slow each step (default 120 in record mode)
 #
-# Artifacts (only when recording): tests/e2e/ui/artifacts/*.png
+# Artifacts (when --screenshots or --record): tests/e2e/ui/artifacts/*.png
 #
 # Install Chromium only (no test run), e.g. to warm a CI image:
 #   E2E_UI_INSTALL=1 go test -tags e2e_ui -run '^$' ./tests/e2e/ui/...
@@ -27,15 +29,18 @@ cd "$SCRIPT_DIR/../../.." # repo root (ui/ is tests/e2e/ui/, three levels deep)
 
 INSTALL=0
 RECORD=0
+SCREENSHOTS=0
 for arg in "$@"; do
   case "$arg" in
-    --install) INSTALL=1 ;;
-    --record)  RECORD=1 ;;
+    --install)     INSTALL=1 ;;
+    --record)      RECORD=1 ;;
+    --screenshots) SCREENSHOTS=1 ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
 [[ "${E2E_UI_INSTALL:-0}" == "1" ]] && INSTALL=1
 [[ "${E2E_UI_RECORD:-0}" == "1" ]] && RECORD=1
+[[ "${E2E_UI_SCREENSHOTS:-0}" == "1" ]] && SCREENSHOTS=1
 
 # --install hands off to the test binary's TestMain, which calls
 # playwright.Install({chromium}) before anything else. With -run '^$' that is the
@@ -50,9 +55,14 @@ fi
 # A normal (non-install) run must never re-download: leave E2E_UI_INSTALL unset.
 if [[ "$INSTALL" == "1" ]]; then export E2E_UI_INSTALL=1; else unset E2E_UI_INSTALL || true; fi
 
+# --screenshots captures a PNG per step silently (headless); --record is headed
+# supervision with the cursor overlay and implies screenshots. They compose.
 if [[ "$RECORD" == "1" ]]; then
   export E2E_UI_RECORD=1
   echo ">> running UI e2e (HEADED + screenshots + cursor)"
+elif [[ "$SCREENSHOTS" == "1" ]]; then
+  export E2E_UI_SCREENSHOTS=1
+  echo ">> running UI e2e (headless + screenshots)"
 else
   echo ">> running UI e2e (headless)"
 fi

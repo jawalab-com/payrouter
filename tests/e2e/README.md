@@ -22,7 +22,8 @@ layer still leaves you a full report covering both.
 
 ```bash
 ./tests/e2e/run-all.sh                 # API + UI (headless)
-./tests/e2e/run-all.sh --record        # UI headed, with screenshots
+./tests/e2e/run-all.sh --screenshots   # UI headless, with a PNG per step in the report
+./tests/e2e/run-all.sh --record        # UI headed, with screenshots (live supervision)
 ./tests/e2e/run-all.sh --install       # first run: download Chromium for the UI layer
 ./tests/e2e/run-all.sh --open          # open the HTML report in a browser when done
 E2E_SKIP_UI=1  ./tests/e2e/run-all.sh  # API only (no Chromium needed)

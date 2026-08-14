@@ -11,10 +11,14 @@
 // and expired transitions — is exercised without live gateway credentials or a
 // separate process.
 //
-// Recording (screenshots) and a cursor/ripple overlay are OFF by default
-// for fast, headless CI. Set E2E_UI_RECORD=1 to turn them on: the browser runs
-// headed, every step is screenshotted, and a fake cursor + click ripples are
-// injected so a human watching can follow what Playwright is doing.
+// Screenshot capture and a cursor/ripple overlay are OFF by default for fast,
+// headless CI. Two independent flags:
+//   - E2E_UI_SCREENSHOTS=1 captures a screenshot per step silently, headless —
+//     no browser window ever opens. Use this in CI to attach artifact PNGs to
+//     the report.
+//   - E2E_UI_RECORD=1 is for live supervision: the browser runs headed, every
+//     step is screenshotted, and a fake cursor + click ripples are injected so
+//     a human watching can follow what Playwright is doing. (Implies screenshots.)
 package ui
 
 import (
@@ -40,13 +44,18 @@ import (
 
 var (
 	pw           *playwright.Playwright
-	record       bool // E2E_UI_RECORD=1: headed + screenshots + cursor
+	record       bool // E2E_UI_RECORD=1: headed + screenshots + cursor (live supervision)
+	screenshots  bool // E2E_UI_SCREENSHOTS=1: capture screenshots silently, headless
 	slowMo       float64
 	artifactsDir string
 )
 
 func TestMain(m *testing.M) {
 	record = os.Getenv("E2E_UI_RECORD") == "1"
+	// Screenshots can be captured silently (headless) on their own, or as part of
+	// a headed record run. The two flags are independent so CI can grab artifact
+	// PNGs without a visible browser ever opening.
+	screenshots = record || os.Getenv("E2E_UI_SCREENSHOTS") == "1"
 	if v := os.Getenv("E2E_UI_SLOWMO"); v != "" {
 		fmt.Sscanf(v, "%f", &slowMo)
 	} else if record {
@@ -198,9 +207,10 @@ func (e *checkoutEnv) markExpired(t *testing.T, sessionID string) {
 
 // --- browser ----------------------------------------------------------------
 
-// newPage launches Chromium and returns a page with clipboard permission and the
-// supervision cursor already injected. The browser/context/page are closed on
-// test cleanup.
+// newPage launches Chromium and returns a page with clipboard permission. In
+// record mode the supervision cursor is injected too (it is only meaningful when
+// a human is watching the headed browser; silent screenshot runs skip it so the
+// PNGs are clean). The browser/context/page are closed on test cleanup.
 func newPage(t *testing.T) playwright.Page {
 	t.Helper()
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
@@ -217,8 +227,10 @@ func newPage(t *testing.T) playwright.Page {
 	if err != nil {
 		t.Fatalf("new context: %v", err)
 	}
-	if err := ctx.AddInitScript(playwright.Script{Content: playwright.String(supervisionCursor)}); err != nil {
-		t.Fatalf("inject cursor: %v", err)
+	if record {
+		if err := ctx.AddInitScript(playwright.Script{Content: playwright.String(supervisionCursor)}); err != nil {
+			t.Fatalf("inject cursor: %v", err)
+		}
 	}
 	page, err := ctx.NewPage()
 	if err != nil {
@@ -231,11 +243,12 @@ func newPage(t *testing.T) playwright.Page {
 	return page
 }
 
-// snap writes a full-page screenshot to artifacts/ when recording; a no-op in
-// fast/CI mode so the default run adds zero I/O.
+// snap writes a full-page screenshot to artifacts/ when screenshot capture is on
+// (E2E_UI_SCREENSHOTS=1 or E2E_UI_RECORD=1); a no-op in fast/CI mode so the
+// default run adds zero I/O.
 func snap(t *testing.T, page playwright.Page, name string) {
 	t.Helper()
-	if !record {
+	if !screenshots {
 		return
 	}
 	img, err := page.Screenshot(playwright.PageScreenshotOptions{FullPage: playwright.Bool(true)})

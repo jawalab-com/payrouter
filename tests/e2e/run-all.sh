@@ -3,7 +3,8 @@
 # run-all.sh — run BOTH e2e layers and produce a combined report.
 #
 #   ./tests/e2e/run-all.sh                 # API + UI (headless), report under ./tests/e2e/report/out
-#   ./tests/e2e/run-all.sh --record        # UI headed with screenshots
+#   ./tests/e2e/run-all.sh --screenshots   # UI headless, with a PNG per step in the report
+#   ./tests/e2e/run-all.sh --record        # UI headed with screenshots (live supervision)
 #   ./tests/e2e/run-all.sh --install       # first-time Chromium install
 #   ./tests/e2e/run-all.sh --open          # open the HTML report in a browser when done
 #   E2E_REPORT_DIR=... ./tests/e2e/run-all.sh
@@ -31,7 +32,7 @@ PASSTHROUGH=() # flags forwarded to run-ui.sh (--install/--record)
 for arg in "$@"; do
   case "$arg" in
     --open) OPEN=1 ;;
-    --install|--record) PASSTHROUGH+=("$arg") ;;
+    --install|--record|--screenshots) PASSTHROUGH+=("$arg") ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
