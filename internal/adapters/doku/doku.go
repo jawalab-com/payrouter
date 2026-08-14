@@ -60,32 +60,52 @@ func (a *Adapter) now() time.Time {
 	return time.Now()
 }
 
-// EnableSNAP supplies the extra credentials DOKU's SNAP APIs require beyond the
-// Checkout API's Client-Id and Secret Key: a PEM-encoded RSA private key whose
-// public half is registered in the DOKU dashboard, plus the merchant and
-// terminal identifiers that appear on QR requests.
+// SNAPConfig carries the extra credentials DOKU's SNAP APIs require beyond the
+// Checkout API's Client-Id and Secret Key. Different instruments need different
+// subsets, so each is validated against the capability it unlocks rather than
+// all being mandatory.
+type SNAPConfig struct {
+	// PrivateKeyPEM is an RSA private key (PKCS#1 or PKCS#8) whose public half is
+	// registered in the DOKU dashboard. Required for all SNAP calls.
+	PrivateKeyPEM []byte
+
+	// MerchantID and TerminalID identify the QR acceptance point. Required for
+	// QRIS only.
+	MerchantID string
+	TerminalID string
+
+	// PartnerServiceID is the DOKU-assigned virtual account prefix (company code
+	// / BIN). Required for virtual accounts only, because every VA number this
+	// adapter issues is built from it.
+	PartnerServiceID string
+}
+
+// EnableSNAP turns on DOKU's SNAP APIs. Capabilities are enabled individually:
+// supplying a key plus merchant/terminal ids unlocks QRIS, and supplying a
+// partner service id unlocks virtual accounts. Whatever is missing simply stays
+// unsupported, so a partially configured deployment falls back to the hosted
+// Checkout page for those methods instead of failing mid-payment.
 //
-// Until this is called the adapter reports no instrument support and keeps using
-// the hosted Checkout page, so a deployment without SNAP set up degrades to a
-// redirect instead of failing mid-payment.
-func (a *Adapter) EnableSNAP(privateKeyPEM []byte, merchantID, terminalID string) error {
-	key, err := ParsePrivateKey(privateKeyPEM)
+// It errors only when the key itself is unusable, or when nothing at all would
+// be enabled — that combination is a misconfiguration worth surfacing.
+func (a *Adapter) EnableSNAP(cfg SNAPConfig) error {
+	key, err := ParsePrivateKey(cfg.PrivateKeyPEM)
 	if err != nil {
 		return err
 	}
-	if merchantID == "" {
-		return errors.New("doku: SNAP requires a merchant id (DOKU_MERCHANT_ID)")
+	creds := &snapCredentials{
+		clientID:         a.clientID,
+		secretKey:        a.secretKey,
+		privateKey:       key,
+		merchantID:       cfg.MerchantID,
+		terminalID:       cfg.TerminalID,
+		partnerServiceID: strings.TrimSpace(cfg.PartnerServiceID),
 	}
-	if terminalID == "" {
-		return errors.New("doku: SNAP requires a terminal id (DOKU_TERMINAL_ID)")
+	if !creds.supportsQRIS() && !creds.supportsVA() {
+		return errors.New("doku: SNAP enables nothing: QRIS needs DOKU_MERCHANT_ID and " +
+			"DOKU_TERMINAL_ID, virtual accounts need DOKU_PARTNER_SERVICE_ID")
 	}
-	a.snap = &snapCredentials{
-		clientID:   a.clientID,
-		secretKey:  a.secretKey,
-		privateKey: key,
-		merchantID: merchantID,
-		terminalID: terminalID,
-	}
+	a.snap = creds
 	return nil
 }
 

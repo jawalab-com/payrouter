@@ -207,9 +207,23 @@ func enableDokuSNAP(a *doku.Adapter, cfg config.Config) {
 			"hint", "set DOKU_PRIVATE_KEY (or DOKU_PRIVATE_KEY_FILE), DOKU_MERCHANT_ID and DOKU_TERMINAL_ID")
 		return
 	}
-	if err := a.EnableSNAP([]byte(cfg.Doku.PrivateKeyPEM), cfg.Doku.MerchantID, cfg.Doku.TerminalID); err != nil {
+	if err := a.EnableSNAP(doku.SNAPConfig{
+		PrivateKeyPEM:    []byte(cfg.Doku.PrivateKeyPEM),
+		MerchantID:       cfg.Doku.MerchantID,
+		TerminalID:       cfg.Doku.TerminalID,
+		PartnerServiceID: cfg.Doku.PartnerServiceID,
+	}); err != nil {
 		slog.Warn("doku: SNAP credentials rejected; falling back to hosted checkout", "error", err)
 		return
 	}
-	slog.Info("doku: SNAP enabled", "direct_instruments", []string{"qris"})
+	// Report what was actually unlocked: QRIS and virtual accounts need different
+	// credentials, so a partial setup enables only one.
+	var enabled []string
+	if a.SupportsInstrument(gateway.IDQRIS) {
+		enabled = append(enabled, "qris")
+	}
+	if a.SupportsInstrument(gateway.IDVirtualAccount) {
+		enabled = append(enabled, "virtual_account")
+	}
+	slog.Info("doku: SNAP enabled", "direct_instruments", enabled)
 }

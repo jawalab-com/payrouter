@@ -100,7 +100,10 @@ func newSNAPAdapter(t *testing.T, srv *snapServer, keyPEM []byte) *Adapter {
 	t.Helper()
 	a := newForTest("client-1", "secret-1", srv.URL, srv.Client())
 	a.nowFn = fixedTime
-	if err := a.EnableSNAP(keyPEM, "merchant-1", "terminal-1"); err != nil {
+	if err := a.EnableSNAP(SNAPConfig{
+		PrivateKeyPEM: keyPEM, MerchantID: "merchant-1", TerminalID: "terminal-1",
+		PartnerServiceID: "88881",
+	}); err != nil {
 		t.Fatalf("EnableSNAP: %v", err)
 	}
 	return a
@@ -371,18 +374,6 @@ func TestNoSNAPMeansNoInstrumentSupport(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected an error without SNAP configured")
-	}
-}
-
-// TestVirtualAccountNotYetSupported documents the remaining gap: DOKU exposes VA
-// per bank, each with its own request shape, so it is separate work.
-func TestVirtualAccountNotYetSupported(t *testing.T) {
-	srv := newSNAPServer(t)
-	_, keyPEM := testKey(t)
-	a := newSNAPAdapter(t, srv, keyPEM)
-
-	if a.SupportsInstrument(gateway.IDVirtualAccount) {
-		t.Error("SupportsInstrument(VA) = true, but per-bank VA is not implemented")
 	}
 }
 

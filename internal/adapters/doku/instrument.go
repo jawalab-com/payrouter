@@ -18,15 +18,12 @@ import (
 // Direct instrument issuance for DOKU, over the Bank Indonesia SNAP APIs.
 //
 // CreatePayment uses the Checkout API, a hosted page returning only a redirect
-// URL. The endpoint here issues a QRIS code up front so PayRouter can render it
-// on its own checkout page.
+// URL. The endpoints here issue an instrument up front so PayRouter can render
+// it on its own checkout page: QRIS below, virtual accounts in instrument_va.go.
 //
 // This runs on a different protocol from the rest of the adapter — see
 // snapauth.go — and requires SNAP to be enabled with an RSA keypair via
-// EnableSNAP. Virtual accounts are deliberately not implemented yet: DOKU
-// exposes them per bank (/bri-virtual-account/..., /bni-virtual-account/...,
-// /mandiri-virtual-account/...), each with its own request shape, so they are a
-// separate piece of work rather than a variant of this one.
+// EnableSNAP.
 const (
 	qrGeneratePath = "/snap-adapter/b2b/v1.0/qr/qr-mpm-generate"
 
@@ -45,7 +42,14 @@ func (a *Adapter) SupportsInstrument(method gateway.IDPaymentMethodType) bool {
 	if a.snap == nil {
 		return false
 	}
-	return method == gateway.IDQRIS
+	switch method {
+	case gateway.IDQRIS:
+		return a.snap.supportsQRIS()
+	case gateway.IDVirtualAccount:
+		return a.snap.supportsVA()
+	default:
+		return false
+	}
 }
 
 // IssueInstrument creates a directly-renderable payment instrument.
@@ -56,11 +60,25 @@ func (a *Adapter) IssueInstrument(ctx context.Context, in *gateway.CreatePayment
 	if in.AmountMinor <= 0 {
 		return nil, errors.New("doku: IssueInstrument requires a positive amount")
 	}
-	if in.PaymentMethodType != gateway.IDQRIS {
-		return nil, fmt.Errorf("doku: %w: %s", gateway.ErrInstrumentUnsupported, in.PaymentMethodType)
-	}
 	if a.snap == nil {
 		return nil, fmt.Errorf("doku: %w: SNAP is not configured (call EnableSNAP)", gateway.ErrInstrumentUnsupported)
+	}
+
+	switch in.PaymentMethodType {
+	case gateway.IDQRIS:
+		return a.issueQRIS(ctx, in)
+	case gateway.IDVirtualAccount:
+		return a.issueVirtualAccount(ctx, in)
+	default:
+		return nil, fmt.Errorf("doku: %w: %s", gateway.ErrInstrumentUnsupported, in.PaymentMethodType)
+	}
+}
+
+// issueQRIS creates a dynamic QRIS code carrying the raw EMVCo payload.
+func (a *Adapter) issueQRIS(ctx context.Context, in *gateway.CreatePaymentInput) (*gateway.PaymentResult, error) {
+	if !a.snap.supportsQRIS() {
+		return nil, fmt.Errorf("doku: %w: QRIS needs DOKU_MERCHANT_ID and DOKU_TERMINAL_ID",
+			gateway.ErrInstrumentUnsupported)
 	}
 
 	token, err := a.accessToken(ctx)
@@ -68,7 +86,7 @@ func (a *Adapter) IssueInstrument(ctx context.Context, in *gateway.CreatePayment
 		return nil, err
 	}
 
-	body, err := json.Marshal(map[string]any{
+	body, err := marshalJSON(map[string]any{
 		"partnerReferenceNo": in.Reference,
 		"amount": map[string]any{
 			// SNAP carries amounts as decimal strings, not integers, even for
@@ -82,14 +100,14 @@ func (a *Adapter) IssueInstrument(ctx context.Context, in *gateway.CreatePayment
 			Format(snapTimeFormat),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("doku: marshal QR request: %w", err)
+		return nil, err
 	}
 
 	var resp qrGenerateResponse
 	if err := a.doSNAP(ctx, http.MethodPost, qrGeneratePath, token, body, &resp); err != nil {
 		return nil, err
 	}
-	if err := resp.responseError(); err != nil {
+	if err := snapResponseError(resp.ResponseCode, resp.ResponseMessage); err != nil {
 		return nil, err
 	}
 	if resp.QRContent == "" {
@@ -169,23 +187,31 @@ type qrGenerateResponse struct {
 	} `json:"additionalInfo"`
 }
 
-// responseError converts a non-success SNAP responseCode into an error.
+// snapResponseError converts a non-success SNAP responseCode into an error.
 //
-// SNAP codes are six digits: HTTP status, service code, then case code. A
-// success is 2xxxxxx — anything else is a rejection that may still arrive with
-// HTTP 200, so the code must be checked rather than the transport status.
-func (r qrGenerateResponse) responseError() error {
-	if r.ResponseCode == "" {
+// SNAP codes are six digits: HTTP status, service code, then case code. Success
+// starts with 2 — anything else is a rejection that may still arrive under HTTP
+// 200, so the code must be checked rather than the transport status.
+func snapResponseError(code, message string) error {
+	if code == "" {
 		return errors.New("doku: SNAP response carried no responseCode")
 	}
-	if strings.HasPrefix(r.ResponseCode, "2") {
+	if strings.HasPrefix(code, "2") {
 		return nil
 	}
-	msg := r.ResponseMessage
-	if msg == "" {
-		msg = "request rejected"
+	if message == "" {
+		message = "request rejected"
 	}
-	return fmt.Errorf("doku: SNAP request failed (responseCode %s): %s", r.ResponseCode, msg)
+	return fmt.Errorf("doku: SNAP request failed (responseCode %s): %s", code, message)
+}
+
+// marshalJSON marshals a SNAP request body, wrapping the error for context.
+func marshalJSON(v any) ([]byte, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("doku: marshal SNAP request: %w", err)
+	}
+	return b, nil
 }
 
 // snapAmount renders a minor-unit amount as the decimal string SNAP expects.

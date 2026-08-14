@@ -88,9 +88,10 @@ type DokuConfig struct {
 	// half is registered in the DOKU dashboard — the Checkout API's Client-Id and
 	// Secret Key alone are not sufficient. When these are absent the adapter keeps
 	// using the hosted Checkout page instead.
-	PrivateKeyPEM string // PEM-encoded RSA private key (PKCS#1 or PKCS#8)
-	MerchantID    string // merchant identifier sent on QR requests
-	TerminalID    string // terminal identifier sent on QR requests
+	PrivateKeyPEM    string // PEM-encoded RSA private key (PKCS#1 or PKCS#8)
+	MerchantID       string // merchant identifier sent on QR requests
+	TerminalID       string // terminal identifier sent on QR requests
+	PartnerServiceID string // DOKU-assigned virtual account prefix (company code / BIN)
 }
 
 // MayarConfig holds the merchant-supplied (BYO) Mayar credentials: the API Key
@@ -201,9 +202,10 @@ func Load() (Config, error) {
 			BaseURL:   strings.TrimSpace(os.Getenv("DOKU_BASE_URL")),
 			// The key may be supplied inline (with literal \n escapes, as env vars
 			// cannot carry real newlines) or as a path to a PEM file.
-			PrivateKeyPEM: readKeyMaterial(os.Getenv("DOKU_PRIVATE_KEY"), os.Getenv("DOKU_PRIVATE_KEY_FILE")),
-			MerchantID:    strings.TrimSpace(os.Getenv("DOKU_MERCHANT_ID")),
-			TerminalID:    strings.TrimSpace(os.Getenv("DOKU_TERMINAL_ID")),
+			PrivateKeyPEM:    readKeyMaterial(os.Getenv("DOKU_PRIVATE_KEY"), os.Getenv("DOKU_PRIVATE_KEY_FILE")),
+			MerchantID:       strings.TrimSpace(os.Getenv("DOKU_MERCHANT_ID")),
+			TerminalID:       strings.TrimSpace(os.Getenv("DOKU_TERMINAL_ID")),
+			PartnerServiceID: strings.TrimSpace(os.Getenv("DOKU_PARTNER_SERVICE_ID")),
 		},
 		Mayar: MayarConfig{
 			APIKey:       os.Getenv("MAYAR_API_KEY"),

@@ -55,12 +55,22 @@ const (
 // snapCredentials holds the merchant's SNAP identity. It is separate from the
 // Checkout credentials because SNAP additionally needs an RSA private key.
 type snapCredentials struct {
-	clientID   string          // X-CLIENT-KEY / X-PARTNER-ID
-	secretKey  string          // HMAC key for transactional signatures
-	privateKey *rsa.PrivateKey // signs the token request only
-	merchantID string          // merchant identifier echoed on QR requests
-	terminalID string          // terminal identifier echoed on QR requests
+	clientID         string          // X-CLIENT-KEY / X-PARTNER-ID
+	secretKey        string          // HMAC key for transactional signatures
+	privateKey       *rsa.PrivateKey // signs the token request only
+	merchantID       string          // merchant identifier echoed on QR requests
+	terminalID       string          // terminal identifier echoed on QR requests
+	partnerServiceID string          // DOKU-assigned VA prefix (company code / BIN)
 }
+
+// supportsQRIS reports whether the QR acceptance point is identified.
+func (c *snapCredentials) supportsQRIS() bool {
+	return c.merchantID != "" && c.terminalID != ""
+}
+
+// supportsVA reports whether virtual account numbers can be constructed, which
+// requires the DOKU-assigned prefix every VA number is built from.
+func (c *snapCredentials) supportsVA() bool { return c.partnerServiceID != "" }
 
 // snapSession caches the B2B access token across calls. SNAP tokens last 15
 // minutes; re-minting one per request would triple the latency of every payment
