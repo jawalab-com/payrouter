@@ -52,10 +52,8 @@ var (
 
 func TestMain(m *testing.M) {
 	record = os.Getenv("E2E_UI_RECORD") == "1"
-	// Screenshots can be captured silently (headless) on their own, or as part of
-	// a headed record run. The two flags are independent so CI can grab artifact
-	// PNGs without a visible browser ever opening.
-	screenshots = record || os.Getenv("E2E_UI_SCREENSHOTS") == "1"
+	// Screenshots are enabled by default so artifacts/ is always fresh.
+	screenshots = os.Getenv("E2E_UI_SCREENSHOTS") != "0"
 	if v := os.Getenv("E2E_UI_SLOWMO"); v != "" {
 		fmt.Sscanf(v, "%f", &slowMo)
 	} else if record {

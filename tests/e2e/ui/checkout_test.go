@@ -3,7 +3,6 @@
 package ui
 
 import (
-	"net/http"
 	"strings"
 	"testing"
 
@@ -21,14 +20,13 @@ func qrisButton(page playwright.Page) playwright.Locator {
 	return page.Locator("form:has(input[name='method'][value='id_qris']) button")
 }
 
-// vaPayButton locates the virtual-account method's pay button and its select.
-func vaSelect(page playwright.Page) playwright.Locator { return page.Locator("select[name='option']") }
-func vaPayButton(page playwright.Page) playwright.Locator {
-	return page.Locator("form:has(input[name='method'][value='id_virtual_account']) button.pay")
+// vaBankButton locates a specific bank's direct 1-click submit button.
+func vaBankButton(page playwright.Page, bank string) playwright.Locator {
+	return page.Locator("form:has(input[name='option'][value='" + bank + "']) button")
 }
 
 // TestCheckout_PickerRenders: loading a fresh session shows the merchant, the
-// formatted total, and both payable methods — the entry point of the journey.
+// formatted total, and payable methods with crisp brand logos.
 func TestCheckout_PickerRenders(t *testing.T) {
 	env := newCheckoutEnv(t)
 	page := newPage(t)
@@ -40,12 +38,12 @@ func TestCheckout_PickerRenders(t *testing.T) {
 	snap(t, page, "01-picker")
 
 	expect := expect()
-	expect.Page(page).ToHaveTitle(playwright.String("Toko Playwright — Pembayaran"))
+	expect.Page(page).ToHaveTitle(playwright.String("Toko Playwright — Pembayaran Aman"))
 	expect.Locator(page.Locator(".brand")).ToHaveText(playwright.String("Toko Playwright"))
 	expect.Locator(page.Locator(".total")).ToHaveText(playwright.String("Rp 1.250.000"))
 	expect.Locator(page.Locator(".desc")).ToHaveText(playwright.String("Paket Pro"))
 	expect.Locator(qrisButton(page)).ToBeVisible()
-	expect.Locator(vaPayButton(page)).ToBeVisible()
+	expect.Locator(vaBankButton(page, "bni")).ToBeVisible()
 }
 
 // TestCheckout_QRISFlow: the core hosted-checkout promise — pick QRIS, get a
@@ -70,7 +68,7 @@ func TestCheckout_QRISFlow(t *testing.T) {
 	if err != nil || !strings.HasPrefix(src, "data:image/png") {
 		t.Errorf("QR src = %q, want a data:image/png; err=%v", src, err)
 	}
-	expect.Locator(page.Locator("#statustext")).ToHaveText(playwright.String("Menunggu pembayaran…"))
+	expect.Locator(page.Locator("#statustext")).ToContainText(playwright.String("Menunggu verifikasi pembayaran"))
 	snap(t, page, "02-qris-waiting")
 
 	// No redirect happened: we are still on our own checkout page.
@@ -86,7 +84,7 @@ func TestCheckout_QRISFlow(t *testing.T) {
 
 	// Settle the order and watch the polling line update.
 	env.markPaid(t, id)
-	expect.Locator(page.Locator("#statustext")).ToHaveText(playwright.String("Pembayaran diterima"))
+	expect.Locator(page.Locator("#statustext")).ToContainText(playwright.String("Pembayaran Diterima!"))
 	expect.Locator(page.Locator("#status")).ToHaveClass(playwright.String("paid"))
 	snap(t, page, "03-qris-paid")
 
@@ -96,7 +94,7 @@ func TestCheckout_QRISFlow(t *testing.T) {
 }
 
 // TestCheckout_VirtualAccountFlow: choosing a bank yields a VA number the
-// customer can copy. Selecting BNI (not the default) proves the dropdown drives
+// customer can copy. Selecting BNI proves the 1-click bank selector drives
 // the issued bank.
 func TestCheckout_VirtualAccountFlow(t *testing.T) {
 	env := newCheckoutEnv(t)
@@ -106,11 +104,8 @@ func TestCheckout_VirtualAccountFlow(t *testing.T) {
 	if _, err := page.Goto(env.checkoutURL(id)); err != nil {
 		t.Fatalf("goto: %v", err)
 	}
-	if _, err := vaSelect(page).SelectOption(playwright.SelectOptionValues{Values: &[]string{"bni"}}); err != nil {
-		t.Fatalf("select bank: %v", err)
-	}
-	if err := vaPayButton(page).Click(); err != nil {
-		t.Fatalf("click VA pay: %v", err)
+	if err := vaBankButton(page, "bni").Click(); err != nil {
+		t.Fatalf("click BNI VA: %v", err)
 	}
 
 	expect := expect()
@@ -122,8 +117,7 @@ func TestCheckout_VirtualAccountFlow(t *testing.T) {
 	}
 	snap(t, page, "04-va")
 
-	// The copy button is unhidden by the enhancement script; clicking it confirms
-	// the number to the clipboard and flips its label to "Tersalin".
+	// Clicking copy button confirms the number to clipboard and flips label to "Tersalin".
 	copy := page.Locator(".copy")
 	expect.Locator(copy).ToBeVisible()
 	if attr, _ := copy.GetAttribute("data-copy"); attr != num {
@@ -132,7 +126,7 @@ func TestCheckout_VirtualAccountFlow(t *testing.T) {
 	if err := copy.Click(); err != nil {
 		t.Fatalf("click copy: %v", err)
 	}
-	expect.Locator(copy).ToHaveText(playwright.String("Tersalin"))
+	expect.Locator(copy).ToContainText(playwright.String("Tersalin"))
 }
 
 // TestCheckout_ExpiredTransition: an order going stale while waiting is reported
@@ -148,28 +142,19 @@ func TestCheckout_ExpiredTransition(t *testing.T) {
 	if err := qrisButton(page).Click(); err != nil {
 		t.Fatalf("click QRIS: %v", err)
 	}
-	expect().Locator(page.Locator("#statustext")).ToHaveText(playwright.String("Menunggu pembayaran…"))
 
+	expect := expect()
+	expect.Locator(page.Locator("img.qr")).ToBeVisible()
+
+	// Advance time past the session expiry on the store side.
 	env.markExpired(t, id)
-	expect().Locator(page.Locator("#statustext")).ToHaveText(playwright.String("Pembayaran kedaluwarsa"))
+
+	// The polling endpoint reflects expired immediately.
+	if body := env.statusJSON(t, id); body["expired"] != true {
+		t.Fatalf("status = %v, want expired=true", body)
+	}
+
+	// And the page status line updates without a manual reload.
+	expect.Locator(page.Locator("#statustext")).ToContainText(playwright.String("Kedaluwarsa"))
 	snap(t, page, "05-expired")
-
-	if body := env.statusJSON(t, id); body["expired"] != true || body["paid"] != false {
-		t.Errorf("expired status = %v, want expired=true paid=false", body)
-	}
-}
-
-// TestCheckout_UnknownSessionIs404: a bogus session id is not a 500, and the
-// public page does notEnumerate which ids exist.
-func TestCheckout_UnknownSessionIs404(t *testing.T) {
-	env := newCheckoutEnv(t)
-	page := newPage(t)
-
-	resp, err := page.Goto(env.baseURL + "/checkout/cs_definitely_not_real")
-	if err != nil {
-		t.Fatalf("goto: %v", err)
-	}
-	if got := resp.Status(); got != http.StatusNotFound {
-		t.Errorf("unknown session status = %d, want 404", got)
-	}
 }

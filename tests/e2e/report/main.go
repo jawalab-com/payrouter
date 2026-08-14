@@ -1,16 +1,15 @@
-// Command e2e-report turns the outputs of the two e2e layers into a JUnit XML
-// file (for CI) and a self-contained HTML file (for humans). It is invoked by
-// tests/e2e/run-all.sh.
+// Command e2e-report turns the outputs of the e2e layers into a JUnit XML
+// file (for CI) and a self-contained HTML file (for humans).
 //
 // Inputs:
 //
-//	-api <file>        JSONL emitted by lib/report.sh (one {layer,suite,name,status,duration_ms,error} per line).
-//	-ui  <file>        Raw `go test -json` output from the Playwright UI layer.
-//	-artifacts <dir>   UI screenshots dir (linked from the HTML when present).
+//	-json <file>       Unified `go test -json` output (covering both API and UI layers).
+//	-api <file>        Legacy JSONL emitted by bash scenarios (optional).
+//	-ui  <file>        `go test -json` output from the Playwright UI layer (optional).
+//	-artifacts <dir>   UI screenshots directory (linked/embedded in the HTML).
 //	-out  <dir>        Where to write e2e-report.xml and e2e-report.html.
 //
-// Either -api or -ui may be omitted; the report then covers whichever layers have
-// input. Missing files are treated as "that layer did not run".
+// If no input files are specified via flags, it reads `go test -json` directly from stdin.
 package main
 
 import (
@@ -20,9 +19,11 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -46,7 +47,7 @@ type testCase struct {
 	Screenshots []string      // relative paths (UI only)
 }
 
-// goTestEvent is the subset of `go test -json` we consume.
+// goTestEvent is the standard subset of `go test -json`.
 type goTestEvent struct {
 	Action  string  `json:"Action"`  // run | pass | fail | skip | output | cont
 	Package string  `json:"Package"` // e.g. github.com/.../tests/e2e/ui
@@ -57,18 +58,53 @@ type goTestEvent struct {
 
 func main() {
 	var (
-		apiFile      = flag.String("api", "", "api.jsonl from lib/report.sh")
+		jsonFile     = flag.String("json", "", "unified go test -json output file")
+		apiFile      = flag.String("api", "", "api.jsonl from legacy bash runner")
 		uiFile       = flag.String("ui", "", "go test -json output from the UI layer")
 		artifactsDir = flag.String("artifacts", "", "UI screenshots directory")
-		outDir       = flag.String("out", ".", "output directory for the report files")
-		title        = flag.String("title", "PayRouter e2e", "report title")
+		outDir       = flag.String("out", filepath.Join(".", "out"), "output directory for the report files")
+		title        = flag.String("title", "PayRouter E2E Verification Report", "report title")
 		openReport   = flag.Bool("open", false, "attempt to open the HTML report in the default browser")
 	)
 	flag.Parse()
 
 	var cases []testCase
-	cases = append(cases, parseAPI(*apiFile)...)
-	cases = append(cases, parseUI(*uiFile)...)
+
+	if *jsonFile != "" {
+		f, err := os.Open(*jsonFile)
+		if err == nil {
+			defer f.Close()
+			cases = append(cases, parseGoTestJSON(f)...)
+		}
+	} else if *apiFile != "" || *uiFile != "" {
+		cases = append(cases, parseLegacyAPI(*apiFile)...)
+		if *uiFile != "" {
+			f, err := os.Open(*uiFile)
+			if err == nil {
+				defer f.Close()
+				cases = append(cases, parseGoTestJSON(f)...)
+			}
+		}
+	} else {
+		// Read from stdin if piped
+		stat, err := os.Stdin.Stat()
+		if err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+			cases = append(cases, parseGoTestJSON(os.Stdin)...)
+		}
+	}
+
+	// Default artifacts dir if not explicitly given
+	if *artifactsDir == "" {
+		candidate := filepath.Join("tests", "e2e", "ui", "artifacts")
+		if _, err := os.Stat(candidate); err == nil {
+			*artifactsDir = candidate
+		} else {
+			candidateRel := filepath.Join("..", "ui", "artifacts")
+			if _, err := os.Stat(candidateRel); err == nil {
+				*artifactsDir = candidateRel
+			}
+		}
+	}
 
 	attachScreenshots(cases, *artifactsDir)
 
@@ -95,7 +131,7 @@ func main() {
 		fatalf("write HTML: %v", err)
 	}
 
-	// Stdout summary so CI logs show the headline without opening the file.
+	// Stdout summary
 	var pass, fail, skip int
 	var total time.Duration
 	for _, c := range cases {
@@ -116,19 +152,69 @@ func main() {
 		openURL(htmlPath)
 	}
 	if fail > 0 {
-		os.Exit(1) // CI: a failing layer should fail the reporting step too.
+		os.Exit(1)
 	}
 }
 
 // --- parsing -----------------------------------------------------------------
 
-func parseAPI(path string) []testCase {
+func parseGoTestJSON(r io.Reader) []testCase {
+	if r == nil {
+		return nil
+	}
+
+	type acc struct {
+		pkg    string
+		suite  string
+		output strings.Builder
+	}
+	accs := map[string]*acc{}
+
+	var out []testCase
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 2<<20), 2<<20)
+	for sc.Scan() {
+		var ev goTestEvent
+		if err := json.Unmarshal(sc.Bytes(), &ev); err != nil {
+			continue
+		}
+		if ev.Test == "" {
+			continue
+		}
+		a := accs[ev.Test]
+		if a == nil {
+			suite := suiteName(ev.Package, ev.Test)
+			a = &acc{pkg: ev.Package, suite: suite}
+			accs[ev.Test] = a
+		}
+		switch ev.Action {
+		case "output":
+			a.output.WriteString(ev.Output)
+		case statusPass, statusFail, statusSkip:
+			layer := "API"
+			if strings.HasSuffix(ev.Package, "/ui") || strings.Contains(strings.ToLower(ev.Test), "ui") || strings.Contains(strings.ToLower(ev.Test), "picker") || strings.Contains(strings.ToLower(ev.Test), "qris") || strings.Contains(strings.ToLower(ev.Test), "virtualaccount") {
+				layer = "UI"
+			}
+			out = append(out, testCase{
+				Layer:    layer,
+				Suite:    a.suite,
+				Name:     ev.Test,
+				Status:   ev.Action,
+				Duration: time.Duration(ev.Elapsed * float64(time.Second)),
+				Error:    strings.TrimSpace(a.output.String()),
+			})
+		}
+	}
+	return out
+}
+
+func parseLegacyAPI(path string) []testCase {
 	if path == "" {
 		return nil
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return nil // missing file => layer did not run
+		return nil
 	}
 	defer f.Close()
 
@@ -149,7 +235,7 @@ func parseAPI(path string) []testCase {
 			Error      string `json:"error"`
 		}
 		if err := json.Unmarshal([]byte(line), &r); err != nil {
-			continue // skip malformed lines rather than aborting the report
+			continue
 		}
 		out = append(out, testCase{
 			Layer: "API", Suite: defaultStr(r.Suite, "api"), Name: r.Name,
@@ -160,84 +246,43 @@ func parseAPI(path string) []testCase {
 	return out
 }
 
-func parseUI(path string) []testCase {
-	if path == "" {
-		return nil
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-
-	// Accumulate output per test so a failure carries its assertion text.
-	type acc struct {
-		suite  string
-		output strings.Builder
-	}
-	accs := map[string]*acc{}
-
-	var out []testCase
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 1<<20), 1<<20)
-	for sc.Scan() {
-		var ev goTestEvent
-		if err := json.Unmarshal(sc.Bytes(), &ev); err != nil {
-			continue
-		}
-		if ev.Test == "" {
-			continue // package-level event, not an individual test
-		}
-		a := accs[ev.Test]
-		if a == nil {
-			a = &acc{suite: uiSuite(ev.Package)}
-			accs[ev.Test] = a
-		}
-		switch ev.Action {
-		case "output":
-			a.output.WriteString(ev.Output)
-		case statusPass, statusFail, statusSkip:
-			out = append(out, testCase{
-				Layer: "UI", Suite: a.suite, Name: ev.Test, Status: ev.Action,
-				Duration: time.Duration(ev.Elapsed * float64(time.Second)),
-				Error:    strings.TrimSpace(a.output.String()),
-			})
-		}
-	}
-	return out
-}
-
-// uiSuite shortens a Go package path to its last segment for display.
-func uiSuite(pkg string) string {
-	if pkg == "" {
+func suiteName(pkg, test string) string {
+	if strings.HasSuffix(pkg, "/ui") {
 		return "ui"
+	}
+	if strings.HasPrefix(test, "TestE2E_") {
+		return strings.TrimPrefix(test, "TestE2E_")
+	}
+	if strings.HasPrefix(test, "TestCheckout_") {
+		return strings.TrimPrefix(test, "TestCheckout_")
 	}
 	if i := strings.LastIndex(pkg, "/"); i >= 0 {
 		return pkg[i+1:]
 	}
-	return pkg
+	return defaultStr(pkg, "e2e")
 }
 
 // --- artifacts ---------------------------------------------------------------
 
-// attachScreenshots links each UI test to its step screenshots, matched by the
-// sanitized test name prefix the test binary writes (see snap() in the UI tests).
 func attachScreenshots(cases []testCase, artifactsDir string) {
+	if artifactsDir == "" {
+		return
+	}
 	pngs := globRel(artifactsDir, ".png")
 	for i, c := range cases {
 		if c.Layer != "UI" {
 			continue
 		}
-		prefix := sanitize(c.Name)
+		target := sanitize(c.Name)
 		for _, p := range pngs {
-			if strings.HasPrefix(filepath.Base(p), prefix) {
+			base := sanitize(filepath.Base(p))
+			if strings.Contains(base, target) {
 				cases[i].Screenshots = append(cases[i].Screenshots, p)
 			}
 		}
 	}
 }
 
-// globRel lists files ending in ext under dir as paths relative to dir.
 func globRel(dir, ext string) []string {
 	if dir == "" {
 		return nil
@@ -262,14 +307,45 @@ func globRel(dir, ext string) []string {
 	return out
 }
 
-// sanitize mirrors the UI test binary's file-naming: lowercase, / and space → _.
 func sanitize(s string) string {
 	s = strings.ToLower(s)
-	s = strings.ReplaceAll(s, "/", "_")
-	return strings.ReplaceAll(s, " ", "_")
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "/", "")
+	return strings.ReplaceAll(s, " ", "")
 }
 
 // --- JUnit XML ---------------------------------------------------------------
+
+type junitTestSuites struct {
+	XMLName  xml.Name     `xml:"testsuites"`
+	Name     string       `xml:"name,attr"`
+	Tests    int          `xml:"tests,attr"`
+	Failures int          `xml:"failures,attr"`
+	Time     float64      `xml:"time,attr"`
+	Suites   []junitSuite `xml:"testsuite"`
+}
+
+type junitSuite struct {
+	Name     string      `xml:"name,attr"`
+	Tests    int         `xml:"tests,attr"`
+	Failures int         `xml:"failures,attr"`
+	Time     float64     `xml:"time,attr"`
+	Cases    []junitCase `xml:"testcase"`
+}
+
+type junitCase struct {
+	Classname string        `xml:"classname,attr"`
+	Name      string        `xml:"name,attr"`
+	Time      float64       `xml:"time,attr"`
+	Failure   *junitFailure `xml:"failure,omitempty"`
+	Skipped   *struct{}     `xml:"skipped,omitempty"`
+}
+
+type junitFailure struct {
+	Message string `xml:"message,attr"`
+	Text    string `xml:",chardata"`
+}
 
 func writeJUnit(path string, cases []testCase, title string) error {
 	suites := buildSuites(cases)
@@ -330,7 +406,12 @@ func buildSuites(cases []testCase) []junitSuite {
 func writeHTML(path string, cases []testCase, title, artifactsDir, outDir string) error {
 	relArtifacts, err := filepath.Rel(outDir, artifactsDir)
 	if err != nil || artifactsDir == "" {
-		relArtifacts = "" // no screenshot links when the dir is unknown
+		relArtifacts = ""
+	}
+
+	type shotView struct {
+		Name string
+		URL  string
 	}
 
 	type rowView struct {
@@ -341,8 +422,9 @@ func writeHTML(path string, cases []testCase, title, artifactsDir, outDir string
 		StatusClass string
 		Duration    string
 		Error       string
-		Shots       []string
+		Shots       []shotView
 	}
+
 	var rows []rowView
 	var pass, fail, skip int
 	var total time.Duration
@@ -356,45 +438,73 @@ func writeHTML(path string, cases []testCase, title, artifactsDir, outDir string
 		case statusSkip:
 			skip++
 		}
-		rv := rowView{
-			Layer: c.Layer, Suite: c.Suite, Name: c.Name, Status: c.Status,
-			StatusClass: c.Status, Duration: c.Duration.Round(time.Millisecond).String(),
-			Error: c.Error,
-		}
+		var shots []shotView
 		for _, s := range c.Screenshots {
-			rv.Shots = append(rv.Shots, filepath.ToSlash(filepath.Join(relArtifacts, s)))
+			url := filepath.ToSlash(filepath.Join(relArtifacts, s))
+			shots = append(shots, shotView{Name: s, URL: url})
 		}
-		rows = append(rows, rv)
+		errDetail := ""
+		if c.Status == statusFail {
+			errDetail = c.Error
+		}
+		rows = append(rows, rowView{
+			Layer:       c.Layer,
+			Suite:       c.Suite,
+			Name:        c.Name,
+			Status:      strings.ToUpper(c.Status),
+			StatusClass: c.Status,
+			Duration:    formatDuration(c.Duration),
+			Error:       errDetail,
+			Shots:       shots,
+		})
 	}
 
-	funcMap := template.FuncMap{"firstLine": firstLine}
-	tmpl := template.Must(template.New("report").Funcs(funcMap).Parse(reportTmpl))
+	data := struct {
+		Title      string
+		Pass       int
+		Fail       int
+		Skip       int
+		TotalCount int
+		Duration   string
+		Generated  string
+		Rows       []rowView
+	}{
+		Title:      title,
+		Pass:       pass,
+		Fail:       fail,
+		Skip:       skip,
+		TotalCount: len(cases),
+		Duration:   formatDuration(total),
+		Generated:  time.Now().Format("2006-01-02 15:04:05 MST"),
+		Rows:       rows,
+	}
 
-	w, err := os.Create(path)
+	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer w.Close()
-	return tmpl.Execute(w, map[string]any{
-		"Title": title, "Generated": time.Now().Format("2 Jan 2006 15:04:05 MST"),
-		"Total": len(rows), "Pass": pass, "Fail": fail, "Skip": skip,
-		"Duration": total.Round(time.Millisecond).String(),
-		"Rows": rows,
-	})
+	defer f.Close()
+	return reportTmpl.Execute(f, data)
 }
 
-// --- helpers -----------------------------------------------------------------
+func formatDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%.2fms", float64(d.Microseconds())/1000.0)
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.2fs", d.Seconds())
+}
 
 func normalize(s string) string {
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "pass", "ok", "success":
+	case "pass", "passed", "ok", "success":
 		return statusPass
-	case "fail", "error", "failed":
-		return statusFail
-	case "skip", "skipped", "ignored":
+	case "skip", "skipped":
 		return statusSkip
 	default:
-		return s
+		return statusFail
 	}
 }
 
@@ -406,10 +516,24 @@ func defaultStr(s, def string) string {
 }
 
 func firstLine(s string) string {
-	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
 		return s[:i]
 	}
 	return s
+}
+
+func openURL(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	_ = cmd.Start()
 }
 
 func fatalf(format string, args ...any) {
@@ -417,128 +541,199 @@ func fatalf(format string, args ...any) {
 	os.Exit(2)
 }
 
-func openURL(path string) {
-	abs, _ := filepath.Abs(path)
-	// Best-effort, cross-platform. Errors are non-fatal.
-	for _, cmd := range [][]string{
-		{"cmd", "/c", "start", "", abs}, // Windows
-		{"open", abs},                   // macOS
-		{"xdg-open", abs},               // Linux
-	} {
-		if _, err := exec.LookPath(cmd[0]); err == nil {
-			_ = exec.Command(cmd[0], cmd[1:]...).Run()
-			return
-		}
-	}
-}
-
-// JUnit XML model -------------------------------------------------------------
-type junitTestSuites struct {
-	XMLName  xml.Name `xml:"testsuites"`
-	Name     string   `xml:"name,attr"`
-	Tests    int      `xml:"tests,attr"`
-	Failures int      `xml:"failures,attr"`
-	Time     float64  `xml:"time,attr"`
-	Suites   []junitSuite `xml:"testsuite"`
-}
-type junitSuite struct {
-	Name     string       `xml:"name,attr"`
-	Tests    int          `xml:"tests,attr"`
-	Failures int          `xml:"failures,attr"`
-	Time     float64      `xml:"time,attr"`
-	Cases    []junitCase  `xml:"testcase"`
-}
-type junitCase struct {
-	Classname string        `xml:"classname,attr"`
-	Name      string        `xml:"name,attr"`
-	Time      float64       `xml:"time,attr"`
-	Failure   *junitFailure `xml:"failure,omitempty"`
-	Skipped   *struct{}     `xml:"skipped,omitempty"`
-}
-type junitFailure struct {
-	Message string `xml:"message,attr"`
-	Text    string `xml:",chardata"`
-}
-
-// reportTmpl is the self-contained HTML report. html/template auto-escapes the
-// dynamic values (error text, test names); screenshot hrefs are built by the
-// generator from a controlled artifacts directory and emitted into <a>/<img>.
-const reportTmpl = `<!DOCTYPE html>
+var reportTmpl = template.Must(template.New("report").Parse(`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>{{.Title}}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>{{.Title}} — e2e report</title>
 <style>
-  :root { color-scheme: light dark; }
-  body { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-         margin: 0; background: #f6f7f9; color: #1b1f23; }
-  header { background: #1f2937; color: #fff; padding: 20px 28px; }
-  header h1 { margin: 0 0 4px; font-size: 20px; }
-  header .meta { opacity: .8; font-size: 12px; }
-  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
-  .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 8px;
-          padding: 14px 18px; min-width: 110px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-  .card .n { font-size: 26px; font-weight: 700; }
-  .card .l { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; opacity: .65; }
-  .card.pass .n { color: #1a7f37; }
-  .card.fail .n { color: #cf222e; }
-  .card.skip .n { color: #9a6700; }
-  .layer { margin-bottom: 32px; }
-  .layer h2 { font-size: 16px; border-bottom: 2px solid #e3e6ea; padding-bottom: 6px; }
-  table { width: 100%; border-collapse: collapse; background: #fff;
-          border: 1px solid #e3e6ea; border-radius: 8px; overflow: hidden; }
-  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #eef0f2; vertical-align: top; }
-  th { background: #f0f2f4; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
-  tr:last-child td { border-bottom: none; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
-           font-size: 11px; font-weight: 600; text-transform: uppercase; }
-  .badge.pass { background: #dcfce7; color: #166534; }
-  .badge.fail { background: #fee2e2; color: #991b1b; }
-  .badge.skip { background: #fef9c3; color: #854d0e; }
-  .err { color: #991b1b; white-space: pre-wrap; }
-  .shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-  .shots a img { width: 160px; border: 1px solid #e3e6ea; border-radius: 4px; display: block; }
+:root {
+  --bg: #0b0f17;
+  --card: #151b26;
+  --card-subtle: #1c2433;
+  --fg: #f1f5f9;
+  --muted: #94a3b8;
+  --line: #232d3f;
+  --ok: #22c55e;
+  --ok-bg: rgba(34, 197, 94, 0.12);
+  --fail: #ef4444;
+  --fail-bg: rgba(239, 68, 68, 0.12);
+  --skip: #eab308;
+  --accent: #3b82f6;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  padding: 2rem 1rem;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+.meta { font-size: 0.8125rem; color: var(--muted); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+.stat-val { font-size: 2rem; font-weight: 800; line-height: 1; }
+.stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--muted); margin-top: 0.5rem; font-weight: 600; letter-spacing: 0.05em; }
+.stat-card.pass .stat-val { color: var(--ok); }
+.stat-card.fail .stat-val { color: var(--fail); }
+.stat-card.skip .stat-val { color: var(--skip); }
+
+.table-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+th {
+  background: var(--card-subtle);
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--line);
+}
+td { padding: 0.875rem 1rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.015); }
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.badge.pass { background: var(--ok-bg); color: var(--ok); }
+.badge.fail { background: var(--fail-bg); color: var(--fail); }
+.badge.skip { background: var(--skip); color: #000; }
+.badge.layer { background: var(--card-subtle); color: var(--accent); border: 1px solid var(--line); }
+
+.test-name { font-weight: 600; font-family: var(--font-mono); font-size: 0.8125rem; }
+.test-suite { font-size: 0.75rem; color: var(--muted); }
+.duration { font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted); }
+
+.shots-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.shot-link {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.shot-link:hover { transform: scale(1.03); border-color: var(--accent); }
+.shot-thumb { width: 140px; height: 90px; object-fit: cover; display: block; background: #000; }
+.shot-name { font-size: 0.65rem; color: var(--muted); padding: 0.25rem 0.4rem; background: var(--card-subtle); display: block; max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.error-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--fail-bg);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #fca5a5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
 </style>
 </head>
 <body>
-<header>
-  <h1>{{.Title}}</h1>
-  <div class="meta">Generated {{.Generated}} · {{.Total}} tests · {{.Duration}}</div>
-</header>
-<main>
-  <div class="cards">
-    <div class="card pass"><div class="n">{{.Pass}}</div><div class="l">Passed</div></div>
-    <div class="card fail"><div class="n">{{.Fail}}</div><div class="l">Failed</div></div>
-    <div class="card skip"><div class="n">{{.Skip}}</div><div class="l">Skipped</div></div>
+<div class="container">
+  <header>
+    <div>
+      <h1>{{.Title}}</h1>
+      <div class="meta">Generated {{.Generated}} • Total Elapsed: {{.Duration}}</div>
+    </div>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-val">{{.TotalCount}}</div>
+      <div class="stat-label">Total Tests</div>
+    </div>
+    <div class="stat-card pass">
+      <div class="stat-val">{{.Pass}}</div>
+      <div class="stat-label">Passed</div>
+    </div>
+    <div class="stat-card fail">
+      <div class="stat-val">{{.Fail}}</div>
+      <div class="stat-label">Failed</div>
+    </div>
+    <div class="stat-card skip">
+      <div class="stat-val">{{.Skip}}</div>
+      <div class="stat-label">Skipped</div>
+    </div>
   </div>
 
-  {{$layer := ""}}
-  {{range .Rows}}
-    {{if ne .Layer $layer}}
-      {{if $layer}}</table></div>{{end}}
-      <div class="layer">
-      <h2>{{.Layer}} layer</h2>
-      <table>
-      <tr><th>Status</th><th>Suite</th><th>Test</th><th>Duration</th><th>Detail</th></tr>
-      {{$layer = .Layer}}
-    {{end}}
-    <tr>
-      <td><span class="badge {{.StatusClass}}">{{.Status}}</span></td>
-      <td>{{.Suite}}</td>
-      <td>{{.Name}}</td>
-      <td>{{.Duration}}</td>
-      <td>
-        {{if .Error}}<div class="err">{{.Error}}</div>{{end}}
-        {{if .Shots}}<div class="shots">
-          {{range .Shots}}<a href="{{.}}"><img src="{{.}}" alt="screenshot"></a>{{end}}
-        </div>{{end}}
-      </td>
-    </tr>
-  {{end}}
-  {{if $layer}}</table></div>{{end}}
-</main>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Suite</th>
+          <th>Test Name & Artifacts</th>
+          <th>Status</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Rows}}
+        <tr>
+          <td><span class="badge layer">{{.Layer}}</span></td>
+          <td><span class="test-suite">{{.Suite}}</span></td>
+          <td>
+            <div class="test-name">{{.Name}}</div>
+            {{if .Error}}<div class="error-box">{{.Error}}</div>{{end}}
+            {{if .Shots}}
+            <div class="shots-grid">
+              {{range .Shots}}
+              <a class="shot-link" href="{{.URL}}" target="_blank" title="{{.Name}}">
+                <img class="shot-thumb" src="{{.URL}}" alt="{{.Name}}" loading="lazy">
+                <span class="shot-name">{{.Name}}</span>
+              </a>
+              {{end}}
+            </div>
+            {{end}}
+          </td>
+          <td><span class="badge {{.StatusClass}}">{{.Status}}</span></td>
+          <td><span class="duration">{{.Duration}}</span></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
 </body>
-</html>`
+</html>`))
