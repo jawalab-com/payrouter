@@ -2,6 +2,12 @@
 
 fail() {
   printf '\nFAIL: %s\n' "$*" >&2
+  # Attribute the failure to the scenario currently running, for the e2e report.
+  # report_record is defined by lib/report.sh; if that wasn't sourced this is a
+  # silent no-op (standalone assertions.sh usage still works).
+  if declare -F report_record >/dev/null 2>&1; then
+    report_record api "${CURRENT_SUITE:-api}" "${CURRENT_SCENARIO:-unknown}" fail 0 "$*"
+  fi
   exit 1
 }
 

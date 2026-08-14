@@ -14,6 +14,12 @@ BASE_URL="${PAYMENT_BASE_URL:-http://localhost:8787}"
 API_KEY="${PAYMENT_API_KEY:-sk_test_local_vamios}"
 GATEWAY="${PAYMENT_GATEWAY:-stub}"
 
+# Optional result capture for the e2e report (lib/report.sh). No-op unless
+# E2E_REPORT_DIR is set.
+# shellcheck source=lib/report.sh
+source "$SCRIPT_DIR/lib/report.sh"
+report_init
+
 printf 'payrouter E2E\n'
 printf 'Target: %s (gateway=%s)\n' "$BASE_URL" "$GATEWAY"
 
@@ -27,14 +33,14 @@ source "$SCRIPT_DIR/scenarios/checkout.sh"
 source "$SCRIPT_DIR/scenarios/subscriptions.sh"
 source "$SCRIPT_DIR/scenarios/webhooks.sh"
 
-scenario_health
-scenario_auth
-scenario_customers
-scenario_catalog
-scenario_payment_intents
-scenario_refunds
-scenario_checkout
-scenario_subscriptions
-scenario_webhooks
+report_scenario health    health         scenario_health
+report_scenario auth      auth           scenario_auth
+report_scenario customers customers     scenario_customers
+report_scenario catalog   catalog        scenario_catalog
+report_scenario payments  payment_intents scenario_payment_intents
+report_scenario refunds   refunds        scenario_refunds
+report_scenario checkout  checkout       scenario_checkout
+report_scenario subscriptions subscriptions scenario_subscriptions
+report_scenario webhooks  webhooks       scenario_webhooks
 
 printf '\nAll facade E2E scenarios passed.\n'

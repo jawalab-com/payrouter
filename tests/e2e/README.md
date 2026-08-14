@@ -12,6 +12,42 @@ Prerequisites: `bash`, `curl`, `jq`.
 ./tests/e2e/run.sh
 ```
 
+## Combined report (both layers)
+
+`run-all.sh` runs the API layer above **and** the optional Playwright UI layer
+(`ui/`), then generates a combined report — JUnit XML for CI and a
+self-contained HTML page for humans. Unlike `run.sh`, it does **not** fail-fast:
+each layer runs to completion and its exit code is captured, so a failure in one
+layer still leaves you a full report covering both.
+
+```bash
+./tests/e2e/run-all.sh                 # API + UI (headless)
+./tests/e2e/run-all.sh --record        # UI headed, with screenshots/video
+./tests/e2e/run-all.sh --install       # first run: download Chromium for the UI layer
+./tests/e2e/run-all.sh --open          # open the HTML report in a browser when done
+E2E_SKIP_UI=1  ./tests/e2e/run-all.sh  # API only (no Chromium needed)
+E2E_SKIP_API=1 ./tests/e2e/run-all.sh  # UI only
+```
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `E2E_REPORT_DIR` | `tests/e2e/report/out` | where `e2e-report.html` / `.xml` are written |
+| `E2E_SKIP_UI` | unset | `1` skips the Playwright layer |
+| `E2E_SKIP_API` | unset | `1` skips the bash API layer |
+
+The report generator (`tests/e2e/report`) consumes the bash layer's `api.jsonl`
+(per-scenario JSON emitted by `lib/report.sh`) and the UI layer's `go test -json`
+output, links UI screenshots/video into the HTML, and exits non-zero if any case
+failed. It can also be run standalone:
+
+```bash
+go run ./tests/e2e/report \
+  -api tests/e2e/report/out/api.jsonl \
+  -ui  tests/e2e/report/out/ui.json \
+  -artifacts tests/e2e/ui/artifacts \
+  -out tests/e2e/report/out
+```
+
 ## Targeting a running facade
 
 | Variable | Default | Notes |
