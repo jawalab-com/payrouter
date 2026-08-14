@@ -48,7 +48,10 @@ func (g *routingStubGateway) ParseWebhook(_ context.Context, _ *http.Request) ([
 func createCheckoutWith(t *testing.T, routing *gateway.RoutingInfo) string {
 	t.Helper()
 	srv := New(
-		config.Config{APIKey: "sk_test_x", ActiveGateway: "auto"},
+		// CheckoutUI is pinned off: these tests exercise the HOSTED checkout path
+		// (gateway CreatePayment at session-create), which orchestration otherwise
+		// defers now that the UI defaults on for orchestrated gateways.
+		config.Config{APIKey: "sk_test_x", ActiveGateway: "auto", CheckoutUI: false},
 		store.NewMemory(),
 		&routingStubGateway{routing: routing},
 	)

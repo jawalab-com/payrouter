@@ -283,3 +283,72 @@ func TestAmountFormatting(t *testing.T) {
 		t.Errorf("non-IDR fallback = %q", got)
 	}
 }
+
+// newSessionAt creates a checkout session, sending the create request from the
+// given origin (and optional forwarded-* headers) so the inferred checkout URL
+// can be exercised. Returns the session id.
+func newSessionAt(t *testing.T, srv *Server, origin string, hdrs map[string]string) string {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, origin+"/v1/checkout/sessions", strings.NewReader(
+		"mode=payment&success_url=https://shop.test/ok"+
+			"&line_items[0][price_data][currency]=idr"+
+			"&line_items[0][price_data][unit_amount]=50000"+
+			"&line_items[0][price_data][product_data][name]=Item"+
+			"&line_items[0][quantity]=1"))
+	req.Header.Set("Authorization", "Bearer sk_test_x")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for k, v := range hdrs {
+		req.Header.Set(k, v)
+	}
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create session: %d %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode session: %v", err)
+	}
+	return out.ID
+}
+
+// TestCheckoutURLInferredWhenPublicURLUnset: with no PAYMENT_PUBLIC_URL the
+// hosted UI still produces a correct absolute link, derived from the request.
+func TestCheckoutURLInferredWhenPublicURLUnset(t *testing.T) {
+	srv := New(config.Config{
+		APIKey: "sk_test_x", ActiveGateway: "stub",
+		CheckoutUI: true, BrandName: "Toko Test", // PublicURL intentionally empty
+	}, store.NewMemory(), stub.New())
+
+	id := newSessionAt(t, srv, "http://pay.example.test", nil)
+	sess, err := srv.store.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if want := "http://pay.example.test/checkout/" + id; sess.URL != want {
+		t.Errorf("inferred URL = %q, want %q", sess.URL, want)
+	}
+}
+
+// TestCheckoutURLHonorsForwardedHeaders: behind a trusted proxy the inferred
+// URL follows X-Forwarded-Proto/Host, so the customer gets the public address.
+func TestCheckoutURLHonorsForwardedHeaders(t *testing.T) {
+	srv := New(config.Config{
+		APIKey: "sk_test_x", ActiveGateway: "stub",
+		CheckoutUI: true, TrustProxyHeaders: true, BrandName: "Toko Test",
+	}, store.NewMemory(), stub.New())
+
+	id := newSessionAt(t, srv, "http://internal.svc:8787", map[string]string{
+		"X-Forwarded-Proto": "https",
+		"X-Forwarded-Host":  "pay.example.com",
+	})
+	sess, err := srv.store.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if want := "https://pay.example.com/checkout/" + id; sess.URL != want {
+		t.Errorf("forwarded URL = %q, want %q", sess.URL, want)
+	}
+}

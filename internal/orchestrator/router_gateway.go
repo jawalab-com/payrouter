@@ -62,44 +62,66 @@ func (og *OrchestratedGateway) CreatePayment(ctx context.Context, in *gateway.Cr
 		candidates = append(candidates, name)
 	}
 
-	info := og.router.SelectBest(candidates, channel, amount)
-	if info.Basis != gateway.RoutingLeastCost {
-		// Loud on purpose: least-cost routing is the product's headline behavior,
-		// so every payment that does NOT get it should be traceable in the logs.
-		slog.Warn("orchestrator: no fee data for channel, falling back to priority order",
-			"payment_method_type", methodType,
-			"resolved_channel", info.Channel,
-			"selected_gateway", info.Gateway,
-			"candidates", candidates,
-			"hint", hostedHint(methodType))
-	} else {
-		slog.Debug("orchestrator: least-cost selection",
-			"channel", info.Channel,
-			"selected_gateway", info.Gateway,
-			"fee_minor", info.FeeMinor,
-			"compared", info.Compared)
+	ranked := og.router.RankCandidates(candidates, channel, amount)
+	if len(ranked) == 0 {
+		return nil, errors.New("orchestrator: no candidate gateways available")
 	}
 
-	adapter, ok := og.adapters[info.Gateway]
-	if !ok {
-		return nil, fmt.Errorf("orchestrator selected gateway %s but adapter is not loaded", info.Gateway)
-	}
-
-	res, err := adapter.CreatePayment(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-
-	// Tag reference with gateway prefix for stateless 0-DB routing on callbacks
-	if res != nil {
-		if res.Reference != "" {
-			res.Reference = FormatOrderID(info.Gateway, res.Reference)
+	var lastErr error
+	for attemptIdx, info := range ranked {
+		adapter, ok := og.adapters[info.Gateway]
+		if !ok {
+			continue
 		}
-		routing := info
-		res.Routing = &routing
+
+		if attemptIdx == 0 {
+			if info.Basis != gateway.RoutingLeastCost {
+				slog.Warn("orchestrator: no fee data for channel, falling back to priority order",
+					"payment_method_type", methodType,
+					"resolved_channel", info.Channel,
+					"selected_gateway", info.Gateway,
+					"candidates", candidates,
+					"hint", hostedHint(methodType))
+			} else {
+				slog.Debug("orchestrator: least-cost selection",
+					"channel", info.Channel,
+					"selected_gateway", info.Gateway,
+					"fee_minor", info.FeeMinor,
+					"compared", info.Compared)
+			}
+		} else {
+			slog.Warn("orchestrator: failover attempt to next gateway candidate",
+				"failed_attempt_index", attemptIdx-1,
+				"failover_gateway", info.Gateway,
+				"channel", info.Channel)
+		}
+
+		res, err := adapter.CreatePayment(ctx, in)
+		if err == nil {
+			if og.router.breaker != nil {
+				og.router.breaker.RecordSuccess(info.Gateway)
+			}
+			// Tag reference with gateway prefix for stateless 0-DB routing on callbacks
+			if res != nil {
+				if res.Reference != "" {
+					res.Reference = FormatOrderID(info.Gateway, res.Reference)
+				}
+				routing := info
+				res.Routing = &routing
+			}
+			return res, nil
+		}
+
+		lastErr = err
+		if og.router.breaker != nil {
+			og.router.breaker.RecordFailure(info.Gateway, err)
+		}
+		slog.Warn("orchestrator: gateway create payment failed",
+			"gateway", info.Gateway,
+			"error", err)
 	}
 
-	return res, nil
+	return nil, lastErr
 }
 
 // hostedHint explains the one unresolvable case that is structural rather than a

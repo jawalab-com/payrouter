@@ -27,9 +27,12 @@ import (
 // issue an instrument that this page renders.
 //
 // Everything here is PUBLIC and unauthenticated — a customer's browser cannot
-// hold an sk_ key. That is the whole reason the UI is opt-in: it widens the
-// perimeter from a machine-to-machine API to a public web surface. Consequences
-// enforced below: no session field that is not needed for payment is ever
+// hold an sk_ key. The UI is ON by default for orchestrated gateways (the
+// consistency it gives a multi-gateway checkout is the whole point), OFF for a
+// single static gateway, and PAYMENT_CHECKOUT_UI overrides either way; see
+// config.resolveCheckoutUI. Either way, enabling it widens the perimeter from a
+// machine-to-machine API to a public web surface, so the consequences enforced
+// below stand regardless: no session field that is not needed for payment is ever
 // rendered, responses are marked non-cacheable and non-indexable, and the page
 // ships no external references so a strict CSP holds.
 
@@ -42,6 +45,35 @@ var checkoutTmpl = template.Must(template.ParseFS(checkoutTemplates, "checkoutui
 
 // checkoutBasePath is the public URL prefix for the hosted checkout.
 const checkoutBasePath = "/checkout/"
+
+// checkoutBaseURL resolves the absolute base used both to build checkout links
+// (handed to a customer's browser) and to recognize our own page on redirect. It
+// prefers an explicitly configured PAYMENT_PUBLIC_URL — canonical and immune to
+// Host-header spoofing. When that is unset the UI still works with zero config:
+// the base is derived from the incoming request, honoring X-Forwarded-Proto and
+// X-Forwarded-Host only when the operator has opted into PAYMENT_TRUST_PROXY_HEADERS
+// (e.g. behind a reverse proxy that overwrites Host). Production deployments should
+// still set PAYMENT_PUBLIC_URL explicitly — main.go warns when it is missing —
+// because request-inferred links otherwise depend on headers a client can influence.
+func (s *Server) checkoutBaseURL(r *http.Request) string {
+	if s.cfg.PublicURL != "" {
+		return s.cfg.PublicURL + checkoutBasePath
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	host := r.Host
+	if s.cfg.TrustProxyHeaders {
+		if proto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); proto != "" {
+			scheme = proto
+		}
+		if h := strings.TrimSpace(r.Header.Get("X-Forwarded-Host")); h != "" {
+			host = h
+		}
+	}
+	return scheme + "://" + host + checkoutBasePath
+}
 
 // checkoutView is the data handed to the templates. It carries only what the
 // page needs to display: no metadata, no gateway references, no client secret.
@@ -76,7 +108,8 @@ type checkoutMethod struct {
 type checkoutOption struct{ Value, Label string }
 
 // registerCheckoutUI adds the public checkout routes. Called only when the UI is
-// enabled, so with it off these paths simply do not exist.
+// enabled (default ON for orchestrated gateways, see config.resolveCheckoutUI), so
+// with it off these paths simply do not exist.
 func (s *Server) registerCheckoutUI() {
 	s.mux.HandleFunc("GET /checkout/{id}", s.checkoutPage)
 	s.mux.HandleFunc("POST /checkout/{id}/pay", s.checkoutPay)
@@ -347,7 +380,7 @@ func (s *Server) renderInstrument(w http.ResponseWriter, r *http.Request, view c
 // fallback whenever no configured gateway can issue an instrument for the
 // chosen method — a redirect is always available.
 func (s *Server) redirectToHosted(w http.ResponseWriter, r *http.Request, sess *store.Session, pi *store.PaymentIntent) {
-	if sess.URL != "" && !strings.HasPrefix(sess.URL, s.cfg.PublicURL+checkoutBasePath) {
+	if sess.URL != "" && !strings.HasPrefix(sess.URL, s.checkoutBaseURL(r)) {
 		http.Redirect(w, r, sess.URL, http.StatusSeeOther)
 		return
 	}

@@ -43,12 +43,16 @@ type Config struct {
 	CORSOrigins       []string
 	TrustProxyHeaders bool // honor X-Forwarded-For / X-Real-Ip; only true behind a proxy you control
 
-	// Hosted checkout UI. OFF by default, and the reason is the security
-	// perimeter rather than binary size: enabling it makes PayRouter serve HTML
-	// to the public's browsers on unauthenticated URLs, from the same process
-	// that holds every merchant's gateway credentials.
+	// Hosted checkout UI. Defaults ON for orchestrated gateways (auto /
+	// least_cost), where a single self-hosted page is what makes multi-gateway
+	// routing feel consistent and trustworthy to a customer, and OFF for a single
+	// static gateway (one gateway's own hosted page is already consistent).
+	// PAYMENT_CHECKOUT_UI=true|false overrides either way. Note the security
+	// implication either way: when on, PayRouter serves HTML to the public's
+	// browsers on unauthenticated URLs, from the same process that holds every
+	// merchant's gateway credentials.
 	CheckoutUI bool
-	PublicURL  string // external base URL used to build checkout links
+	PublicURL  string // external base URL for checkout links; optional — inferred from the request when unset (see server.checkoutBaseURL)
 	BrandName  string // merchant name shown on the checkout page
 	Midtrans   MidtransConfig
 	Xendit     XenditConfig
@@ -163,6 +167,33 @@ func readKeyMaterial(inline, path string) string {
 	return ""
 }
 
+// resolveCheckoutUI decides whether the hosted checkout UI is enabled. An explicit
+// PAYMENT_CHECKOUT_UI value wins ("true"/"false" and common aliases). When unset,
+// the UI is ON by default for orchestrated gateways — where a single self-hosted
+// page is what makes least-cost routing across gateways look consistent to a
+// customer — and OFF for a single static gateway.
+func resolveCheckoutUI(activeGateway, explicit string) bool {
+	switch strings.ToLower(strings.TrimSpace(explicit)) {
+	case "true", "1", "yes", "on":
+		return true
+	case "false", "0", "no", "off":
+		return false
+	default:
+		return isOrchestrated(activeGateway)
+	}
+}
+
+// isOrchestrated reports whether the active gateway is the dynamic least-cost
+// orchestrator rather than a single static adapter.
+func isOrchestrated(activeGateway string) bool {
+	switch strings.ToLower(strings.TrimSpace(activeGateway)) {
+	case "auto", "least_cost", "orchestrated":
+		return true
+	default:
+		return false
+	}
+}
+
 // splitList parses a comma-separated env value into trimmed, non-empty entries.
 func splitList(raw string) []string {
 	var out []string
@@ -200,7 +231,7 @@ func Load() (Config, error) {
 		CORSOrigins:       splitList(os.Getenv("PAYMENT_CORS_ORIGINS")),
 		TrustProxyHeaders: os.Getenv("PAYMENT_TRUST_PROXY_HEADERS") == "true",
 
-		CheckoutUI: os.Getenv("PAYMENT_CHECKOUT_UI") == "true",
+		CheckoutUI: resolveCheckoutUI(getenv("PAYMENT_GATEWAY", "stub"), os.Getenv("PAYMENT_CHECKOUT_UI")),
 		PublicURL:  strings.TrimRight(strings.TrimSpace(os.Getenv("PAYMENT_PUBLIC_URL")), "/"),
 		BrandName:  getenv("PAYMENT_BRAND_NAME", "Checkout"),
 		Midtrans: MidtransConfig{
@@ -258,11 +289,11 @@ func Load() (Config, error) {
 	if c.AppEnv == "production" && c.Webhook.SigningSecretAuto {
 		return Config{}, fmt.Errorf("WEBHOOK_SIGNING_SECRET must be set in production")
 	}
-	// Checkout links are absolute and handed to a customer's browser, so a
-	// relative guess would silently produce unreachable URLs.
-	if c.CheckoutUI && c.PublicURL == "" {
-		return Config{}, fmt.Errorf("PAYMENT_PUBLIC_URL must be set when PAYMENT_CHECKOUT_UI=true (e.g. https://pay.example.com)")
-	}
+	// The public URL is optional: when the checkout UI is on and PAYMENT_PUBLIC_URL
+	// is unset, the server infers checkout links from the incoming request instead
+	// of failing to boot (see server.checkoutBaseURL). Production should still set
+	// it explicitly — main.go warns when it is missing — because request-inferred
+	// links depend on Host headers a client can influence.
 	if c.ActiveGateway == "midtrans" && c.Midtrans.ServerKey == "" {
 		return Config{}, fmt.Errorf("MIDTRANS_SERVER_KEY must be set when PAYMENT_GATEWAY=midtrans")
 	}

@@ -484,7 +484,7 @@ func (s *Server) createDeferredCheckoutSession(w http.ResponseWriter, r *http.Re
 		CustomerEmail:     d.customerEmail,
 		SuccessURL:        r.PostFormValue("success_url"),
 		CancelURL:         r.PostFormValue("cancel_url"),
-		URL:               s.cfg.PublicURL + checkoutBasePath + sessID,
+		URL:               s.checkoutBaseURL(r) + sessID,
 		PaymentIntentID:   d.piID,
 		ClientReferenceID: r.PostFormValue("client_reference_id"),
 		Description:       d.description,

@@ -75,6 +75,10 @@ func main() {
 		slog.Warn("WEBHOOK_SIGNING_SECRET not set; generated ephemeral secret — set explicitly in production",
 			"secret", cfg.Webhook.SigningSecret)
 	}
+	if cfg.CheckoutUI && cfg.PublicURL == "" {
+		slog.Warn("checkout UI is on but PAYMENT_PUBLIC_URL is not set; checkout links are inferred from the request Host header — set PAYMENT_PUBLIC_URL explicitly so links cannot be influenced by a client",
+			"hint", "e.g. https://pay.example.com (behind a proxy, also set PAYMENT_TRUST_PROXY_HEADERS=true)")
+	}
 
 	// Outbound webhook delivery: receive gateway callbacks, re-sign as Stripe
 	// events, and forward to the merchant endpoint. Runs until shutdown.

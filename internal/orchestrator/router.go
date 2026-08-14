@@ -10,13 +10,29 @@ import (
 
 // Router handles least-cost gateway selection and fee math
 type Router struct {
-	config *RootConfig
+	config  *RootConfig
+	breaker *CircuitBreaker
 }
 
-// NewRouter creates a new Router instance with the given RootConfig
+// NewRouter creates a new Router instance with the given RootConfig and default CircuitBreaker.
 func NewRouter(cfg *RootConfig) *Router {
-	return &Router{config: cfg}
+	return &Router{
+		config:  cfg,
+		breaker: NewCircuitBreaker(DefaultBreakerConfig()),
+	}
 }
+
+// WithCircuitBreaker sets a custom circuit breaker on the Router.
+func (r *Router) WithCircuitBreaker(cb *CircuitBreaker) *Router {
+	r.breaker = cb
+	return r
+}
+
+// CircuitBreaker returns the router's active circuit breaker instance.
+func (r *Router) CircuitBreaker() *CircuitBreaker {
+	return r.breaker
+}
+
 
 // NormalizeChannel maps Stripe / SDK / gateway.IDPaymentMethodType aliases onto
 // config fee-table channel keys. The second return is false when the input does
@@ -125,68 +141,113 @@ func (r *Router) CalculateCost(providerName, rawChannel string, amount float64) 
 	return math.Round(finalFee*100) / 100, true
 }
 
-// SelectBest evaluates candidate providers for a channel and reports both the
-// winner and WHY it won.
-//
-// The Basis field is the point of this function. Previously an unresolvable
-// channel silently fell through to FallbackPriority[0] and was indistinguishable
-// from a genuine least-cost win, which meant every hosted checkout reported
-// least-cost routing while actually being pinned to the first priority entry.
-// Callers must branch on Basis rather than assume a fee comparison occurred.
-//
-// Passing a channel that NormalizeChannel cannot resolve (notably "id_hosted")
-// is not an error — it yields RoutingFallbackPriority with Compared == 0.
-func (r *Router) SelectBest(candidates []string, channel string, amount float64) gateway.RoutingInfo {
+// RankCandidates returns candidate providers ranked by priority and health.
+// Healthy candidates with calculated lowest cost come first, followed by priority fallbacks,
+// with degraded/circuit-open candidates demoted to emergency last resort.
+func (r *Router) RankCandidates(candidates []string, channel string, amount float64) []gateway.RoutingInfo {
 	resolved, _ := NormalizeChannel(channel)
-	info := gateway.RoutingInfo{Channel: resolved}
 
 	if r.config == nil {
-		info.Gateway, info.Basis = "midtrans", gateway.RoutingFallbackPriority
-		return info
+		return []gateway.RoutingInfo{{
+			Gateway: "midtrans",
+			Channel: resolved,
+			Basis:   gateway.RoutingFallbackPriority,
+		}}
 	}
 
-	// If no candidates provided, evaluate all enabled providers in config.
 	targetProviders := candidates
 	if len(targetProviders) == 0 {
 		for name := range r.config.Providers {
 			targetProviders = append(targetProviders, name)
 		}
 	}
-	// Iterate in the operator's configured preference order. Fee ties are common
-	// (identical published MDR across gateways), and on a tie the operator's
-	// priority should decide — not map iteration order or the alphabet.
 	ordered := r.inPriorityOrder(targetProviders)
 
-	bestProvider := ""
-	minCost := math.MaxFloat64
-	for _, name := range ordered {
-		cost, ok := r.CalculateCost(name, channel, amount)
-		if !ok {
-			continue
-		}
-		info.Compared++
-		if cost < minCost {
-			minCost, bestProvider = cost, name
-		}
-	}
-	if bestProvider != "" {
-		info.Gateway, info.FeeMinor, info.Basis = bestProvider, minCost, gateway.RoutingLeastCost
-		return info
+	type candidateCost struct {
+		info      gateway.RoutingInfo
+		hasCost   bool
+		isHealthy bool
 	}
 
-	// No candidate priced this channel. Fall back to the configured priority
-	// order, but report that honestly — this is NOT a least-cost decision.
-	info.Basis = gateway.RoutingFallbackPriority
-	if len(ordered) > 0 {
-		info.Gateway = ordered[0]
-		return info
+	var list []candidateCost
+	var comparedCount int
+
+	// First pass: calculate costs and check circuit health
+	for _, name := range ordered {
+		isHealthy := r.breaker == nil || r.breaker.Allow(name)
+		cost, ok := r.CalculateCost(name, channel, amount)
+		info := gateway.RoutingInfo{
+			Gateway: name,
+			Channel: resolved,
+		}
+		if ok {
+			comparedCount++
+			info.FeeMinor = cost
+			info.Basis = gateway.RoutingLeastCost
+		} else {
+			info.Basis = gateway.RoutingFallbackPriority
+		}
+		list = append(list, candidateCost{
+			info:      info,
+			hasCost:   ok,
+			isHealthy: isHealthy,
+		})
 	}
-	if len(r.config.Orchestrator.FallbackPriority) > 0 {
-		info.Gateway = r.config.Orchestrator.FallbackPriority[0]
-		return info
+
+	// Update compared count on all least-cost entries
+	for i := range list {
+		if list[i].hasCost {
+			list[i].info.Compared = comparedCount
+		}
 	}
-	info.Gateway = "midtrans"
-	return info
+
+	// Sort candidates:
+	// 1. Healthy before Unhealthy
+	// 2. Both healthy & priced: lower cost first
+	// 3. One priced, one unpriced: priced first
+	// 4. Stable tie-break by existing operator priority order
+	sort.SliceStable(list, func(i, j int) bool {
+		a, b := list[i], list[j]
+		if a.isHealthy != b.isHealthy {
+			return a.isHealthy // healthy candidates first
+		}
+		if a.hasCost && b.hasCost {
+			if a.info.FeeMinor != b.info.FeeMinor {
+				return a.info.FeeMinor < b.info.FeeMinor
+			}
+			return false // tie kept in priority order
+		}
+		if a.hasCost != b.hasCost {
+			return a.hasCost // priced candidates before unpriced
+		}
+		return false
+	})
+
+	results := make([]gateway.RoutingInfo, len(list))
+	for i, c := range list {
+		results[i] = c.info
+	}
+
+	if len(results) == 0 {
+		defaultGW := "midtrans"
+		if len(r.config.Orchestrator.FallbackPriority) > 0 {
+			defaultGW = r.config.Orchestrator.FallbackPriority[0]
+		}
+		return []gateway.RoutingInfo{{
+			Gateway: defaultGW,
+			Channel: resolved,
+			Basis:   gateway.RoutingFallbackPriority,
+		}}
+	}
+
+	return results
+}
+
+// SelectBest evaluates candidate providers for a channel and reports both the
+// winner and WHY it won.
+func (r *Router) SelectBest(candidates []string, channel string, amount float64) gateway.RoutingInfo {
+	ranked := r.RankCandidates(candidates, channel, amount)
+	return ranked[0]
 }
 
 // inPriorityOrder sorts candidates by the configured fallback priority, with any

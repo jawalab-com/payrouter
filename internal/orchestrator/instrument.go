@@ -62,43 +62,68 @@ func (og *OrchestratedGateway) IssueInstrument(ctx context.Context, in *gateway.
 	for name := range eligible {
 		names = append(names, name)
 	}
-	info := og.router.SelectBest(names, channel, float64(in.AmountMinor))
-
-	if info.Basis == gateway.RoutingLeastCost {
-		slog.Debug("orchestrator: least-cost instrument selection",
-			"method", in.PaymentMethodType,
-			"channel", info.Channel,
-			"selected_gateway", info.Gateway,
-			"fee_minor", info.FeeMinor,
-			"eligible", names)
-	} else {
-		slog.Warn("orchestrator: no fee data for instrument channel, falling back to priority order",
-			"method", in.PaymentMethodType,
-			"resolved_channel", info.Channel,
-			"selected_gateway", info.Gateway,
-			"eligible", names,
-			"hint", "add a fee entry for this channel in config.yaml to enable least-cost routing")
+	ranked := og.router.RankCandidates(names, channel, float64(in.AmountMinor))
+	if len(ranked) == 0 {
+		return nil, fmt.Errorf("orchestrator: %w: no eligible gateways available for %s",
+			gateway.ErrInstrumentUnsupported, in.PaymentMethodType)
 	}
 
-	issuer, ok := eligible[info.Gateway]
-	if !ok {
-		// SelectBest is constrained to the eligible names, so this means the
-		// router returned something outside the set it was given.
-		return nil, fmt.Errorf("orchestrator: selected gateway %s is not among the eligible issuers", info.Gateway)
-	}
-
-	res, err := issuer.IssueInstrument(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	if res != nil {
-		if res.Reference != "" {
-			res.Reference = FormatOrderID(info.Gateway, res.Reference)
+	var lastErr error
+	for attemptIdx, info := range ranked {
+		issuer, ok := eligible[info.Gateway]
+		if !ok {
+			continue
 		}
-		routing := info
-		res.Routing = &routing
+
+		if attemptIdx == 0 {
+			if info.Basis == gateway.RoutingLeastCost {
+				slog.Debug("orchestrator: least-cost instrument selection",
+					"method", in.PaymentMethodType,
+					"channel", info.Channel,
+					"selected_gateway", info.Gateway,
+					"fee_minor", info.FeeMinor,
+					"eligible", names)
+			} else {
+				slog.Warn("orchestrator: no fee data for instrument channel, falling back to priority order",
+					"method", in.PaymentMethodType,
+					"resolved_channel", info.Channel,
+					"selected_gateway", info.Gateway,
+					"eligible", names,
+					"hint", "add a fee entry for this channel in config.yaml to enable least-cost routing")
+			}
+		} else {
+			slog.Warn("orchestrator: failover attempt to next instrument issuer",
+				"method", in.PaymentMethodType,
+				"failed_attempt_index", attemptIdx-1,
+				"failover_gateway", info.Gateway)
+		}
+
+		res, err := issuer.IssueInstrument(ctx, in)
+		if err == nil {
+			if og.router.breaker != nil {
+				og.router.breaker.RecordSuccess(info.Gateway)
+			}
+			if res != nil {
+				if res.Reference != "" {
+					res.Reference = FormatOrderID(info.Gateway, res.Reference)
+				}
+				routing := info
+				res.Routing = &routing
+			}
+			return res, nil
+		}
+
+		lastErr = err
+		if og.router.breaker != nil {
+			og.router.breaker.RecordFailure(info.Gateway, err)
+		}
+		slog.Warn("orchestrator: gateway issue instrument failed",
+			"gateway", info.Gateway,
+			"method", in.PaymentMethodType,
+			"error", err)
 	}
-	return res, nil
+
+	return nil, lastErr
 }
 
 // instrumentCandidates returns the adapters that both implement the optional
