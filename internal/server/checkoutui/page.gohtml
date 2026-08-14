@@ -1,0 +1,173 @@
+{{define "layout"}}<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.Brand}} — Pembayaran</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#16181d;--muted:#666e7a;--line:#e3e6ea;--accent:#0b62d6;--ok:#0a7d38}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:26rem;margin:0 auto;padding:1.5rem 1rem 3rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:.75rem;padding:1.25rem;margin-bottom:1rem}
+h1{font-size:1.1rem;margin:0 0 .25rem}
+.brand{font-weight:600;font-size:1rem;margin-bottom:1rem}
+.total{font-size:1.6rem;font-weight:700;letter-spacing:-.02em}
+.muted{color:var(--muted);font-size:.875rem}
+.desc{margin-top:.25rem}
+ul.methods{list-style:none;margin:0;padding:0}
+ul.methods li{border-top:1px solid var(--line)}
+ul.methods li:first-child{border-top:0}
+button.method{display:flex;width:100%;align-items:center;justify-content:space-between;gap:.75rem;
+  background:none;border:0;padding:.9rem .25rem;font:inherit;color:inherit;cursor:pointer;text-align:left}
+button.method:hover{color:var(--accent)}
+button.method .chev{color:var(--muted)}
+.fieldrow{display:flex;gap:.5rem;align-items:center;margin-top:.6rem}
+select{flex:1;padding:.55rem;border:1px solid var(--line);border-radius:.4rem;font:inherit;background:#fff}
+.pay{display:block;width:100%;margin-top:1rem;padding:.8rem;border:0;border-radius:.5rem;
+  background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.25rem;font-weight:600;
+  letter-spacing:.05em;word-break:break-all}
+.qr{display:block;margin:0 auto;width:15rem;height:15rem;image-rendering:pixelated}
+.copy{margin-top:.5rem;padding:.4rem .7rem;border:1px solid var(--line);border-radius:.4rem;
+  background:#fff;font:inherit;font-size:.8rem;cursor:pointer}
+.status{display:flex;align-items:center;gap:.5rem;font-size:.9rem}
+.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--muted)}
+.status.paid{color:var(--ok);font-weight:600}
+.status.paid .dot{background:var(--ok)}
+.err{background:#fdeaea;border-color:#f5b5b5;color:#8a1c1c}
+a{color:var(--accent)}
+@media(prefers-color-scheme:dark){
+:root{--bg:#0f1114;--card:#171a1f;--fg:#e8eaed;--muted:#9aa3ad;--line:#2a2f36;--accent:#63a4ff}
+select,.copy{background:#0f1114;color:var(--fg)}
+.err{background:#3a1c1c;border-color:#6b2b2b;color:#ffb4b4}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">{{.Brand}}</div>
+  {{.Content}}
+  <p class="muted" style="text-align:center;margin-top:1.5rem">
+    Pembayaran diproses dengan aman.
+  </p>
+</div>
+</body>
+</html>{{end}}
+
+{{define "summary"}}
+<div class="card">
+  <h1 class="muted" style="font-weight:400">Total pembayaran</h1>
+  <div class="total">{{.AmountText}}</div>
+  {{if .Description}}<div class="desc muted">{{.Description}}</div>{{end}}
+</div>
+{{end}}
+
+{{define "picker"}}
+{{template "summary" .}}
+{{if .Error}}<div class="card err">{{.Error}}</div>{{end}}
+<div class="card">
+  <div class="muted" style="margin-bottom:.25rem">Pilih metode pembayaran</div>
+  <ul class="methods">
+    {{range .Methods}}
+    <li>
+      <form method="POST" action="{{$.BasePath}}/pay">
+        <input type="hidden" name="method" value="{{.Method}}">
+        {{if .Options}}
+        <div class="fieldrow">
+          <select name="option" aria-label="{{.Label}}">
+            {{range .Options}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <button class="pay" type="submit">{{.Label}}</button>
+        {{else}}
+        <button class="method" type="submit">
+          <span>{{.Label}}</span><span class="chev">→</span>
+        </button>
+        {{end}}
+      </form>
+    </li>
+    {{end}}
+  </ul>
+</div>
+{{end}}
+
+{{define "instructions"}}
+{{template "summary" .}}
+<div class="card">
+  {{if .QRImage}}
+    <div class="muted" style="text-align:center;margin-bottom:.75rem">
+      Pindai dengan aplikasi pembayaran apa pun
+    </div>
+    <img class="qr" src="{{.QRImage}}" alt="Kode QRIS untuk pembayaran {{.AmountText}}" width="240" height="240">
+  {{else if .QRFallbackURL}}
+    <img class="qr" src="{{.QRFallbackURL}}" alt="Kode QRIS untuk pembayaran {{.AmountText}}">
+  {{end}}
+
+  {{if .VANumber}}
+    <div class="muted">{{.BankLabel}}{{if .BillerCode}} — Kode perusahaan {{.BillerCode}}{{end}}</div>
+    <div class="num" id="vanum">{{.VANumber}}</div>
+    <button class="copy" type="button" data-copy="{{.VANumber}}" hidden>Salin nomor</button>
+    {{if .AccountName}}<div class="muted" style="margin-top:.4rem">a.n. {{.AccountName}}</div>{{end}}
+  {{end}}
+
+  {{if .ExpiresText}}<div class="muted" style="margin-top:.75rem">Berlaku sampai {{.ExpiresText}}</div>{{end}}
+</div>
+
+<div class="card">
+  <div class="status" id="status" data-poll="{{.BasePath}}/status">
+    <span class="dot"></span><span id="statustext">Menunggu pembayaran…</span>
+  </div>
+  <noscript><p class="muted">Muat ulang halaman ini setelah membayar.</p></noscript>
+</div>
+
+<p class="muted" style="text-align:center">
+  <a href="{{.BasePath}}">← Pilih metode lain</a>
+</p>
+
+<script>
+// Progressive enhancement only. Everything above is server-rendered: the
+// instrument is fully usable with JavaScript disabled, and a reload shows the
+// current state. This adds a copy button and live status so the customer does
+// not have to refresh manually.
+(function () {
+  var btn = document.querySelector('.copy');
+  if (btn && navigator.clipboard) {
+    btn.hidden = false;
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(btn.dataset.copy).then(function () {
+        var t = btn.textContent; btn.textContent = 'Tersalin';
+        setTimeout(function () { btn.textContent = t; }, 1500);
+      });
+    });
+  }
+  var el = document.getElementById('status');
+  if (!el || !window.fetch) return;
+  var text = document.getElementById('statustext');
+  var delay = 3000;
+  function poll() {
+    fetch(el.dataset.poll, { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) { return schedule(); }
+        if (d.paid) {
+          el.classList.add('paid');
+          text.textContent = 'Pembayaran diterima';
+          if (d.redirect_url) { setTimeout(function () { location.href = d.redirect_url; }, 1200); }
+          return;
+        }
+        if (d.expired) { text.textContent = 'Pembayaran kedaluwarsa'; return; }
+        schedule();
+      })
+      .catch(schedule);
+  }
+  function schedule() {
+    // Back off gradually so a tab left open overnight does not keep polling
+    // every few seconds.
+    delay = Math.min(delay * 1.3, 30000);
+    setTimeout(poll, delay);
+  }
+  setTimeout(poll, delay);
+})();
+</script>
+{{end}}

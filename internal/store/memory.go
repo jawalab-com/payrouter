@@ -33,11 +33,15 @@ type PaymentIntent struct {
 	NextActionType    string
 	NextActionURL     string
 	NextActionReturn  string
-	Description       string
-	FailureMessage    string // set when a payment attempt failed (surfaces as last_payment_error)
-	Metadata          map[string]string
-	Created           int64
-	Livemode          bool
+	// DisplayJSON holds the serialized gateway.DisplayInstructions when the
+	// instrument was issued directly rather than redirected to. Stored as JSON so
+	// this package stays free of a gateway dependency.
+	DisplayJSON    string
+	Description    string
+	FailureMessage string // set when a payment attempt failed (surfaces as last_payment_error)
+	Metadata       map[string]string
+	Created        int64
+	Livemode       bool
 }
 
 // Memory is a goroutine-safe in-memory store of facade-owned resources. It holds

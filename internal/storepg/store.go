@@ -81,7 +81,7 @@ func (s *Store) q(ctx context.Context) querier {
 // store.Store: PaymentIntent (native durable)
 // ----------------------------------------------------------------------------
 
-const intentCols = "id,account_id,amount_minor,currency,status,client_secret,payment_method_type,gateway_reference,next_action_type,next_action_url,next_action_return,description,failure_message,metadata,livemode,created"
+const intentCols = "id,account_id,amount_minor,currency,status,client_secret,payment_method_type,gateway_reference,next_action_type,next_action_url,next_action_return,display_json,description,failure_message,metadata,livemode,created"
 
 // Put satisfies store.Store; it upserts the intent with a background context.
 func (s *Store) Put(pi *store.PaymentIntent) { _ = s.WriteIntent(context.Background(), pi) }
@@ -275,19 +275,20 @@ func (s *Store) RecordTransition(ctx context.Context, tr *store.PaymentTransitio
 func (s *Store) WriteIntent(ctx context.Context, pi *store.PaymentIntent) error {
 	meta, _ := json.Marshal(pi.Metadata)
 	_, err := s.q(ctx).Exec(ctx, `
-		INSERT INTO payment_intents (id,account_id,amount_minor,currency,status,client_secret,payment_method_type,gateway,gateway_reference,next_action_type,next_action_url,next_action_return,description,failure_message,metadata,livemode,created,updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,now())
+		INSERT INTO payment_intents (id,account_id,amount_minor,currency,status,client_secret,payment_method_type,gateway,gateway_reference,next_action_type,next_action_url,next_action_return,display_json,description,failure_message,metadata,livemode,created,updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now())
 		ON CONFLICT (id) DO UPDATE SET
 			amount_minor=EXCLUDED.amount_minor, currency=EXCLUDED.currency, status=EXCLUDED.status,
 			client_secret=EXCLUDED.client_secret, payment_method_type=EXCLUDED.payment_method_type,
 			gateway=EXCLUDED.gateway, gateway_reference=EXCLUDED.gateway_reference,
 			next_action_type=EXCLUDED.next_action_type, next_action_url=EXCLUDED.next_action_url,
-			next_action_return=EXCLUDED.next_action_return, description=EXCLUDED.description,
+			next_action_return=EXCLUDED.next_action_return, display_json=EXCLUDED.display_json,
+			description=EXCLUDED.description,
 			failure_message=EXCLUDED.failure_message, metadata=EXCLUDED.metadata, livemode=EXCLUDED.livemode,
 			updated_at=now()`,
 		pi.ID, pi.AccountID, pi.AmountMinor, pi.Currency, pi.Status, pi.ClientSecret, pi.PaymentMethodType,
 		s.gateway, pi.GatewayReference, pi.NextActionType, pi.NextActionURL, pi.NextActionReturn,
-		pi.Description, pi.FailureMessage, meta, pi.Livemode, pi.Created)
+		pi.DisplayJSON, pi.Description, pi.FailureMessage, meta, pi.Livemode, pi.Created)
 	return err
 }
 
@@ -390,7 +391,7 @@ func scanIntent(row pgx.Row) (*store.PaymentIntent, error) {
 	if err := row.Scan(
 		&pi.ID, &pi.AccountID, &pi.AmountMinor, &pi.Currency, &pi.Status, &pi.ClientSecret, &pi.PaymentMethodType,
 		&pi.GatewayReference, &pi.NextActionType, &pi.NextActionURL, &pi.NextActionReturn,
-		&pi.Description, &pi.FailureMessage, &meta, &pi.Livemode, &pi.Created); err != nil {
+		&pi.DisplayJSON, &pi.Description, &pi.FailureMessage, &meta, &pi.Livemode, &pi.Created); err != nil {
 		return nil, err
 	}
 	if len(meta) > 0 {

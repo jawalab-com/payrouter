@@ -138,6 +138,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/subscriptions/{id}", s.auth(s.retrieveSubscription))
 	s.mux.HandleFunc("DELETE /v1/subscriptions/{id}", s.auth(s.cancelSubscription))
 	s.mux.HandleFunc("GET /v1/invoices/{id}", s.auth(s.retrieveInvoice))
+
+	// Hosted checkout UI: PUBLIC, unauthenticated routes serving HTML to
+	// customers' browsers. Registered only when explicitly enabled, so with the
+	// flag off these paths do not exist at all rather than merely 404.
+	if s.cfg.CheckoutUI {
+		s.registerCheckoutUI()
+	}
 }
 
 // ServeHTTP implements http.Handler, serving through the middleware chain built

@@ -42,11 +42,19 @@ type Config struct {
 	RateLimitBurst    float64
 	CORSOrigins       []string
 	TrustProxyHeaders bool // honor X-Forwarded-For / X-Real-Ip; only true behind a proxy you control
-	Midtrans          MidtransConfig
-	Xendit            XenditConfig
-	Doku              DokuConfig
-	Mayar             MayarConfig
-	Webhook           WebhookConfig
+
+	// Hosted checkout UI. OFF by default, and the reason is the security
+	// perimeter rather than binary size: enabling it makes PayRouter serve HTML
+	// to the public's browsers on unauthenticated URLs, from the same process
+	// that holds every merchant's gateway credentials.
+	CheckoutUI bool
+	PublicURL  string // external base URL used to build checkout links
+	BrandName  string // merchant name shown on the checkout page
+	Midtrans   MidtransConfig
+	Xendit     XenditConfig
+	Doku       DokuConfig
+	Mayar      MayarConfig
+	Webhook    WebhookConfig
 }
 
 // WebhookConfig holds the outbound webhook (re-sign + deliver) settings.
@@ -184,6 +192,10 @@ func Load() (Config, error) {
 		RateLimitBurst:    getenvFloat("PAYMENT_RATE_LIMIT_BURST", DefaultRateLimitBurst),
 		CORSOrigins:       splitList(os.Getenv("PAYMENT_CORS_ORIGINS")),
 		TrustProxyHeaders: os.Getenv("PAYMENT_TRUST_PROXY_HEADERS") == "true",
+
+		CheckoutUI: os.Getenv("PAYMENT_CHECKOUT_UI") == "true",
+		PublicURL:  strings.TrimRight(strings.TrimSpace(os.Getenv("PAYMENT_PUBLIC_URL")), "/"),
+		BrandName:  getenv("PAYMENT_BRAND_NAME", "Checkout"),
 		Midtrans: MidtransConfig{
 			ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
 			Sandbox:   getenv("MIDTRANS_SANDBOX", "true") != "false", // sandbox unless explicitly "false"
@@ -237,6 +249,11 @@ func Load() (Config, error) {
 	}
 	if c.AppEnv == "production" && c.Webhook.SigningSecretAuto {
 		return Config{}, fmt.Errorf("WEBHOOK_SIGNING_SECRET must be set in production")
+	}
+	// Checkout links are absolute and handed to a customer's browser, so a
+	// relative guess would silently produce unreachable URLs.
+	if c.CheckoutUI && c.PublicURL == "" {
+		return Config{}, fmt.Errorf("PAYMENT_PUBLIC_URL must be set when PAYMENT_CHECKOUT_UI=true (e.g. https://pay.example.com)")
 	}
 	if c.ActiveGateway == "midtrans" && c.Midtrans.ServerKey == "" {
 		return Config{}, fmt.Errorf("MIDTRANS_SERVER_KEY must be set when PAYMENT_GATEWAY=midtrans")

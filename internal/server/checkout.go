@@ -10,6 +10,7 @@ import (
 	"github.com/jawalab-com/payrouter/internal/account"
 	"github.com/jawalab-com/payrouter/internal/gateway"
 	"github.com/jawalab-com/payrouter/internal/store"
+	stripe "github.com/stripe/stripe-go/v81"
 )
 
 // stripeCheckoutSession is the Stripe-shaped Checkout Session object returned by
@@ -122,6 +123,20 @@ func (s *Server) createCheckoutSession(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().Unix()
 	piID := "pi_" + randID()
 	clientSecret := piID + "_secret_" + randID()
+
+	// With the hosted UI enabled, do NOT call a gateway yet. The customer picks a
+	// method on our own page, and only then can the orchestrator resolve a real
+	// fee channel and compare gateways on it. Choosing a gateway here would mean
+	// choosing before the method is known, which is exactly why hosted checkout
+	// cannot be least-cost routed.
+	if s.cfg.CheckoutUI {
+		s.createDeferredCheckoutSession(w, r, deferredSession{
+			piID: piID, clientSecret: clientSecret, amountTotal: amountTotal,
+			currency: currency, description: description,
+			customerID: customerID, customerEmail: customerEmail, now: now,
+		})
+		return
+	}
 
 	// Create the gateway hosted page. IDHosted asks the gateway to show all
 	// merchant-activated methods (Midtrans Snap with no enabled_payments filter;
@@ -418,4 +433,67 @@ func (s *Server) resolveLineItems(r *http.Request) ([]resolvedLineItem, error) {
 		}
 	}
 	return out, nil
+}
+
+// deferredSession carries the values createCheckoutSession already computed into
+// the deferred path, so nothing is recalculated or allowed to drift.
+type deferredSession struct {
+	piID          string
+	clientSecret  string
+	amountTotal   int64
+	currency      string
+	description   string
+	customerID    string
+	customerEmail string
+	now           int64
+}
+
+// createDeferredCheckoutSession creates a session whose URL points at our own
+// checkout page rather than a gateway's.
+//
+// The PaymentIntent starts in requires_payment_method — accurate, because no
+// method has been chosen and no gateway has been contacted. Both become true
+// when the customer selects a method and an instrument is issued.
+func (s *Server) createDeferredCheckoutSession(w http.ResponseWriter, r *http.Request, d deferredSession) {
+	meta := s.enrichMetadata(r, nil)
+	pi := &store.PaymentIntent{
+		ID:           d.piID,
+		AccountID:    account.From(r.Context()),
+		AmountMinor:  d.amountTotal,
+		Currency:     d.currency,
+		Status:       string(stripe.PaymentIntentStatusRequiresPaymentMethod),
+		ClientSecret: d.clientSecret,
+		Description:  d.description,
+		Metadata:     meta,
+		Created:      d.now,
+		Livemode:     s.cfg.Livemode,
+	}
+	s.store.Put(pi)
+
+	sessID := "cs_" + randID()
+	sess := &store.Session{
+		ID:                sessID,
+		AccountID:         account.From(r.Context()),
+		Mode:              "payment",
+		Status:            "open",
+		PaymentStatus:     "unpaid",
+		AmountSubtotal:    d.amountTotal,
+		AmountTotal:       d.amountTotal,
+		Currency:          d.currency,
+		CustomerID:        d.customerID,
+		CustomerEmail:     d.customerEmail,
+		SuccessURL:        r.PostFormValue("success_url"),
+		CancelURL:         r.PostFormValue("cancel_url"),
+		URL:               s.cfg.PublicURL + checkoutBasePath + sessID,
+		PaymentIntentID:   d.piID,
+		ClientReferenceID: r.PostFormValue("client_reference_id"),
+		Description:       d.description,
+		Metadata:          meta,
+		Created:           d.now,
+		ExpiresAt:         d.now + 24*60*60,
+		Livemode:          s.cfg.Livemode,
+	}
+	s.store.PutSession(sess)
+
+	writeJSON(w, http.StatusOK, toStripeCheckoutSession(sess))
 }
