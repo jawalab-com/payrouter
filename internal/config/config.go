@@ -215,8 +215,34 @@ func getenvInt64(key string, defaultVal int64) int64 {
 	return v
 }
 
+// loadDotEnv parses key=val lines from a local .env file without overwriting existing env vars.
+func loadDotEnv(filename string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		k := strings.TrimSpace(parts[0])
+		v := strings.TrimSpace(parts[1])
+		v = strings.Trim(v, `"'`)
+		if os.Getenv(k) == "" {
+			_ = os.Setenv(k, v)
+		}
+	}
+}
+
 // Load reads configuration from environment variables with sensible defaults.
 func Load() (Config, error) {
+	loadDotEnv(".env")
 	c := Config{
 		AppEnv:        getenv("PAYMENT_APP_ENV", "development"),
 		Addr:          getenv("PAYMENT_ADDR", ":8787"),

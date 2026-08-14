@@ -119,6 +119,35 @@ func TestPickerRendersOfferedMethods(t *testing.T) {
 	}
 }
 
+// TestLogoSVGOfficialMarksPinned: every brand shown on the checkout page must
+// resolve to its official embedded mark. A moved or renamed logo file would
+// otherwise silently fall back to the hand-drawn marks — the page would look
+// wrong with no test failing.
+func TestLogoSVGOfficialMarksPinned(t *testing.T) {
+	for _, name := range []string{
+		"qris", "bca", "mandiri", "bni", "bri", "permata",
+		"gopay", "ovo", "dana", "shopee", "alfamart", "visa", "mastercard",
+	} {
+		if s := string(LogoSVG(name)); !strings.Contains(s, "viewBox") {
+			t.Errorf("LogoSVG(%q) did not resolve to an embedded SVG with a viewBox", name)
+		}
+	}
+	// PNG-backed mark (no vector source exists).
+	if s := string(LogoSVG("indomaret")); !strings.Contains(s, "data:image/png;base64,") {
+		t.Error(`LogoSVG("indomaret") did not resolve to the embedded PNG`)
+	}
+	// Aliases and free-text labels the templates pass.
+	for _, name := range []string{"shopeepay", "card", "bank_bca", "BCA Virtual Account"} {
+		if s := string(LogoSVG(name)); !strings.Contains(s, "viewBox") {
+			t.Errorf("LogoSVG(%q) did not resolve to an official mark", name)
+		}
+	}
+	// UI icons still come from the inline set, not the logo files.
+	if s := string(LogoSVG("lock")); !strings.Contains(s, "lucide-icon") {
+		t.Error(`LogoSVG("lock") no longer resolves to the inline UI icon`)
+	}
+}
+
 // TestPayIssuesInstrumentAndRedirects covers the POST/redirect/GET flow: a
 // refresh after paying must not resubmit the method choice.
 func TestPayIssuesInstrumentAndRedirects(t *testing.T) {

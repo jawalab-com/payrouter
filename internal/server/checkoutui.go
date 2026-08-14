@@ -39,9 +39,11 @@ import (
 //go:embed checkoutui/page.gohtml
 var checkoutTemplates embed.FS
 
-// checkoutTmpl is parsed once at startup; a parse failure is a programming error
-// in an embedded asset, so it panics rather than failing per request.
-var checkoutTmpl = template.Must(template.ParseFS(checkoutTemplates, "checkoutui/page.gohtml"))
+// checkoutTmpl is parsed once at startup with embedded SVG brand logos.
+var checkoutTmpl = template.Must(template.New("layout").Funcs(template.FuncMap{
+	"logo": LogoSVG,
+	"safe": func(s string) template.HTML { return template.HTML(s) },
+}).ParseFS(checkoutTemplates, "checkoutui/page.gohtml"))
 
 // checkoutBasePath is the public URL prefix for the hosted checkout.
 const checkoutBasePath = "/checkout/"

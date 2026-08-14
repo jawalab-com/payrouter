@@ -4,91 +4,495 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>{{.Brand}} — Pembayaran</title>
+<title>{{if .Brand}}{{.Brand}} — {{end}}Pembayaran Aman</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--fg:#16181d;--muted:#666e7a;--line:#e3e6ea;--accent:#0b62d6;--ok:#0a7d38}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-.wrap{max-width:26rem;margin:0 auto;padding:1.5rem 1rem 3rem}
-.card{background:var(--card);border:1px solid var(--line);border-radius:.75rem;padding:1.25rem;margin-bottom:1rem}
-h1{font-size:1.1rem;margin:0 0 .25rem}
-.brand{font-weight:600;font-size:1rem;margin-bottom:1rem}
-.total{font-size:1.6rem;font-weight:700;letter-spacing:-.02em}
-.muted{color:var(--muted);font-size:.875rem}
-.desc{margin-top:.25rem}
-ul.methods{list-style:none;margin:0;padding:0}
-ul.methods li{border-top:1px solid var(--line)}
-ul.methods li:first-child{border-top:0}
-button.method{display:flex;width:100%;align-items:center;justify-content:space-between;gap:.75rem;
-  background:none;border:0;padding:.9rem .25rem;font:inherit;color:inherit;cursor:pointer;text-align:left}
-button.method:hover{color:var(--accent)}
-button.method .chev{color:var(--muted)}
-.fieldrow{display:flex;gap:.5rem;align-items:center;margin-top:.6rem}
-select{flex:1;padding:.55rem;border:1px solid var(--line);border-radius:.4rem;font:inherit;background:#fff}
-.pay{display:block;width:100%;margin-top:1rem;padding:.8rem;border:0;border-radius:.5rem;
-  background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
-.num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.25rem;font-weight:600;
-  letter-spacing:.05em;word-break:break-all}
-.qr{display:block;margin:0 auto;width:15rem;height:15rem;image-rendering:pixelated}
-.copy{margin-top:.5rem;padding:.4rem .7rem;border:1px solid var(--line);border-radius:.4rem;
-  background:#fff;font:inherit;font-size:.8rem;cursor:pointer}
-.status{display:flex;align-items:center;gap:.5rem;font-size:.9rem}
-.dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--muted)}
-.status.paid{color:var(--ok);font-weight:600}
-.status.paid .dot{background:var(--ok)}
-.err{background:#fdeaea;border-color:#f5b5b5;color:#8a1c1c}
-a{color:var(--accent)}
-@media(prefers-color-scheme:dark){
-:root{--bg:#0f1114;--card:#171a1f;--fg:#e8eaed;--muted:#9aa3ad;--line:#2a2f36;--accent:#63a4ff}
-select,.copy{background:#0f1114;color:var(--fg)}
-.err{background:#3a1c1c;border-color:#6b2b2b;color:#ffb4b4}}
+:root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --card-subtle: #f1f5f9;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-focus: #94a3b8;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-light: #eff6ff;
+  --ok: #16a34a;
+  --ok-bg: #f0fdf4;
+  --warn: #ea580c;
+  --warn-bg: #fff7ed;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f17;
+    --card: #151b26;
+    --card-subtle: #1c2433;
+    --fg: #f1f5f9;
+    --muted: #94a3b8;
+    --line: #232d3f;
+    --line-focus: #3b4861;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-light: #172554;
+    --ok: #22c55e;
+    --ok-bg: #052e16;
+    --warn: #f97316;
+    --warn-bg: #431407;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.container {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding: 0 0.25rem;
+}
+.brand-info {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.brand-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.brand-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.brand-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  line-height: 1.2;
+}
+.brand-verified {
+  font-size: 0.6875rem;
+  color: var(--ok);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ok);
+  background: var(--ok-bg);
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.card-hero {
+  border-top: 4px solid var(--accent);
+}
+.amount-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+.total-amount {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--fg);
+  line-height: 1.2;
+}
+.order-desc {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  border-top: 1px dashed var(--line);
+  padding-top: 0.5rem;
+}
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.method-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.method-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.method-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  transform: translateY(-1px);
+}
+.method-btn:active {
+  transform: translateY(0);
+}
+.method-info {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+.method-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.method-logo svg,
+.method-logo img {
+  height: 26px;
+  width: auto;
+  max-width: 96px;
+}
+.method-text {
+  display: flex;
+  flex-direction: column;
+}
+.method-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.method-subtitle {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.chevron-icon {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+.qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 0.5rem;
+}
+.qris-header {
+  background: #EE3124;
+  color: #ffffff;
+  width: 100%;
+  max-width: 280px;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1rem;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.qr-frame {
+  background: #ffffff;
+  padding: 1rem;
+  border: 2px solid #EE3124;
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.qr-image {
+  width: 220px;
+  height: 220px;
+  image-rendering: pixelated;
+}
+.qr-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--warn);
+  font-weight: 600;
+  background: var(--warn-bg);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(234, 88, 12, 0.2);
+}
+.va-box {
+  background: var(--card-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  margin: 0.75rem 0;
+  text-align: center;
+}
+.va-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+.va-number {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  word-break: break-all;
+}
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  padding: 0.45rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.copy-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--card-subtle);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.pulse-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(37,99,235,0.7);
+  animation: pulse 1.8s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37,99,235,0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(37,99,235,0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+.status-pill.paid {
+  background: var(--ok-bg);
+  color: var(--ok);
+  font-weight: 600;
+}
+.status-pill.paid .pulse-dot {
+  background: var(--ok);
+  animation: none;
+  box-shadow: none;
+}
+.instructions-guide {
+  margin-top: 1rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+.guide-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.guide-steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.guide-steps li {
+  margin-bottom: 0.35rem;
+}
+.footer-trust {
+  text-align: center;
+  margin-top: 1.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+.footer-trust-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 1rem;
+}
+.back-link:hover {
+  text-decoration: underline;
+}
+.err-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+@media (prefers-color-scheme: dark) {
+  .err-box {
+    background: #450a0a;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+}
+.icon-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="brand">{{.Brand}}</div>
+<div class="container">
+  <div class="header-bar">
+    <div class="brand-info">
+      <div class="brand-avatar">{{logo "merchant"}}</div>
+      <div class="brand-text-wrap">
+        <span class="brand-name brand">{{if .Brand}}{{.Brand}}{{else}}PayRouter{{end}}</span>
+        <span class="brand-verified">Verified Merchant</span>
+      </div>
+    </div>
+    <div class="security-badge">
+      <span class="icon-inline">{{logo "lock"}}</span>
+      <span>256-Bit SSL</span>
+    </div>
+  </div>
+
   {{.Content}}
-  <p class="muted" style="text-align:center;margin-top:1.5rem">
-    Pembayaran diproses dengan aman.
-  </p>
+
+  <div class="footer-trust">
+    <div class="footer-trust-line">
+      <span class="icon-inline">{{logo "lock"}}</span>
+      <span>Pembayaran diproses dengan standar keamanan Bank Indonesia.</span>
+    </div>
+    <span>Powered by PayRouter Facade</span>
+  </div>
 </div>
 </body>
 </html>{{end}}
 
 {{define "summary"}}
-<div class="card">
-  <h1 class="muted" style="font-weight:400">Total pembayaran</h1>
-  <div class="total">{{.AmountText}}</div>
-  {{if .Description}}<div class="desc muted">{{.Description}}</div>{{end}}
+<div class="card card-hero">
+  <div class="amount-label">Total Pembayaran</div>
+  <div class="total-amount total">{{.AmountText}}</div>
+  {{if .Description}}<div class="order-desc desc">{{.Description}}</div>{{end}}
 </div>
 {{end}}
 
 {{define "picker"}}
 {{template "summary" .}}
-{{if .Error}}<div class="card err">{{.Error}}</div>{{end}}
+{{if .Error}}
+<div class="err-box">
+  <span class="icon-inline">{{logo "alert"}}</span>
+  <span>{{.Error}}</span>
+</div>
+{{end}}
 <div class="card">
-  <div class="muted" style="margin-bottom:.25rem">Pilih metode pembayaran</div>
-  <ul class="methods">
+  <div class="section-title">Pilih Metode Pembayaran</div>
+  <div class="method-list">
     {{range .Methods}}
-    <li>
-      <form method="POST" action="{{$.BasePath}}/pay">
-        <input type="hidden" name="method" value="{{.Method}}">
-        {{if .Options}}
-        <div class="fieldrow">
-          <select name="option" aria-label="{{.Label}}">
-            {{range .Options}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
-          </select>
-        </div>
-        <button class="pay" type="submit">{{.Label}}</button>
-        {{else}}
-        <button class="method" type="submit">
-          <span>{{.Label}}</span><span class="chev">→</span>
-        </button>
+      {{if .Options}}
+        {{$method := .Method}}
+        {{range .Options}}
+        <form method="POST" action="{{$.BasePath}}/pay">
+          <input type="hidden" name="method" value="{{$method}}">
+          <input type="hidden" name="option" value="{{.Value}}">
+          <button class="method-btn" type="submit">
+            <div class="method-info">
+              <div class="method-logo">{{logo .Value}}</div>
+              <div class="method-text">
+                <span class="method-title">{{.Label}} Virtual Account</span>
+                <span class="method-subtitle">Konfirmasi otomatis 24 jam</span>
+              </div>
+            </div>
+            <span class="chevron-icon">{{logo "chevron"}}</span>
+          </button>
+        </form>
         {{end}}
-      </form>
-    </li>
+      {{else}}
+        <form method="POST" action="{{$.BasePath}}/pay">
+          <input type="hidden" name="method" value="{{.Method}}">
+          <button class="method-btn" type="submit">
+            <div class="method-info">
+              <div class="method-logo">{{logo .Method}}</div>
+              <div class="method-text">
+                <span class="method-title">{{.Label}}</span>
+                <span class="method-subtitle">Scan via GoPay, OVO, DANA, BCA, dll</span>
+              </div>
+            </div>
+            <span class="chevron-icon">{{logo "chevron"}}</span>
+          </button>
+        </form>
+      {{end}}
     {{end}}
-  </ul>
+  </div>
 </div>
 {{end}}
 
@@ -96,78 +500,164 @@ select,.copy{background:#0f1114;color:var(--fg)}
 {{template "summary" .}}
 <div class="card">
   {{if .QRImage}}
-    <div class="muted" style="text-align:center;margin-bottom:.75rem">
-      Pindai dengan aplikasi pembayaran apa pun
+    <div class="qr-container">
+      <div class="qris-header">
+        <span>QRIS</span>
+      </div>
+      <div class="qr-frame">
+        <img class="qr-image qr" src="{{.QRImage}}" alt="Kode QRIS untuk {{.AmountText}}" width="220" height="220">
+      </div>
+      <div class="qr-timer" id="qris-timer" data-expires="{{.ExpiresText}}">
+        <span class="icon-inline">{{logo "timer"}}</span>
+        <span id="timer-text">Selesaikan pembayaran dalam 15:00</span>
+      </div>
     </div>
-    <img class="qr" src="{{.QRImage}}" alt="Kode QRIS untuk pembayaran {{.AmountText}}" width="240" height="240">
+    <div class="instructions-guide">
+      <div class="guide-title">Cara Pembayaran QRIS:</div>
+      <ol class="guide-steps">
+        <li>Buka aplikasi m-Banking atau E-Wallet (BCA Mobile, Livin', GoPay, OVO, ShopeePay, DANA, dll).</li>
+        <li>Pilih menu <strong>Pindai / Scan QRIS</strong>.</li>
+        <li>Arahkan kamera ke kode QR di atas.</li>
+        <li>Periksa nama merchant dan jumlah total pembayaran, lalu masukkan PIN.</li>
+      </ol>
+    </div>
   {{else if .QRFallbackURL}}
-    <img class="qr" src="{{.QRFallbackURL}}" alt="Kode QRIS untuk pembayaran {{.AmountText}}">
+    <div class="qr-container">
+      <img class="qr-image qr" src="{{.QRFallbackURL}}" alt="Kode QRIS untuk {{.AmountText}}">
+    </div>
   {{end}}
 
   {{if .VANumber}}
-    <div class="muted">{{.BankLabel}}{{if .BillerCode}} — Kode perusahaan {{.BillerCode}}{{end}}</div>
-    <div class="num" id="vanum">{{.VANumber}}</div>
-    <button class="copy" type="button" data-copy="{{.VANumber}}" hidden>Salin nomor</button>
-    {{if .AccountName}}<div class="muted" style="margin-top:.4rem">a.n. {{.AccountName}}</div>{{end}}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+      <div class="section-title" style="margin:0">{{.BankLabel}} Virtual Account</div>
+      <div class="method-logo">{{logo .BankLabel}}</div>
+    </div>
+    
+    <div class="va-box">
+      <div class="va-label">Nomor Rekening Virtual Account</div>
+      <div class="va-number" id="vanum">{{.VANumber}}</div>
+      {{if .BillerCode}}<div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">Kode Perusahaan: <strong>{{.BillerCode}}</strong></div>{{end}}
+      <button class="copy-btn copy" type="button" data-copy="{{.VANumber}}">
+        <span class="icon-inline" id="copy-icon">{{logo "copy"}}</span>
+        <span id="copy-label">Salin Nomor VA</span>
+      </button>
+      {{if .AccountName}}<div style="font-size:0.8125rem;color:var(--muted);margin-top:0.4rem">Atas Nama: <strong>{{.AccountName}}</strong></div>{{end}}
+    </div>
+
+    {{if .ExpiresText}}
+      <div style="font-size:0.75rem;color:var(--muted);text-align:center;margin-top:0.5rem">
+        Berlaku sampai: <strong>{{.ExpiresText}}</strong>
+      </div>
+    {{end}}
+
+    <div class="instructions-guide">
+      <div class="guide-title">Cara Transfer Virtual Account:</div>
+      <ol class="guide-steps">
+        <li>Buka aplikasi Mobile Banking atau ATM bank Anda.</li>
+        <li>Pilih menu <strong>Transfer / Bayar</strong> &gt; <strong>Virtual Account</strong>.</li>
+        <li>Masukkan nomor Virtual Account <strong>{{.VANumber}}</strong>.</li>
+        <li>Pastikan rincian nama dan nominal sesuai, lalu konfirmasi pembayaran.</li>
+      </ol>
+    </div>
   {{end}}
-
-  {{if .ExpiresText}}<div class="muted" style="margin-top:.75rem">Berlaku sampai {{.ExpiresText}}</div>{{end}}
 </div>
 
-<div class="card">
-  <div class="status" id="status" data-poll="{{.BasePath}}/status">
-    <span class="dot"></span><span id="statustext">Menunggu pembayaran…</span>
+<div class="card" style="padding: 0.875rem 1.25rem;">
+  <div class="status-pill" id="status" data-poll="{{.BasePath}}/status">
+    <div class="pulse-dot"></div>
+    <span id="statustext">Menunggu verifikasi pembayaran…</span>
   </div>
-  <noscript><p class="muted">Muat ulang halaman ini setelah membayar.</p></noscript>
+  <noscript><p class="muted" style="font-size:0.75rem;text-align:center;margin:0.5rem 0 0">Muat ulang halaman ini setelah membayar.</p></noscript>
 </div>
 
-<p class="muted" style="text-align:center">
-  <a href="{{.BasePath}}">← Pilih metode lain</a>
-</p>
+<div style="text-align:center">
+  <a class="back-link" href="{{.BasePath}}">
+    <span class="icon-inline">{{logo "arrow-left"}}</span>
+    <span>Pilih metode pembayaran lain</span>
+  </a>
+</div>
 
 <script>
-// Progressive enhancement only. Everything above is server-rendered: the
-// instrument is fully usable with JavaScript disabled, and a reload shows the
-// current state. This adds a copy button and live status so the customer does
-// not have to refresh manually.
 (function () {
-  var btn = document.querySelector('.copy');
+  // Checkmark SVG vector markup
+  var checkSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var copySVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+  var alertSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+
+  // 1. Interactive Copy Button
+  var btn = document.querySelector('.copy-btn');
   if (btn && navigator.clipboard) {
-    btn.hidden = false;
+    var copyIcon = document.getElementById('copy-icon');
+    var copyLabel = document.getElementById('copy-label');
     btn.addEventListener('click', function () {
-      navigator.clipboard.writeText(btn.dataset.copy).then(function () {
-        var t = btn.textContent; btn.textContent = 'Tersalin';
-        setTimeout(function () { btn.textContent = t; }, 1500);
+      var copyText = btn.dataset.copy || document.getElementById('vanum').textContent.trim();
+      navigator.clipboard.writeText(copyText).then(function () {
+        if (copyIcon) copyIcon.innerHTML = checkSVG;
+        if (copyLabel) copyLabel.textContent = 'Tersalin';
+        btn.style.borderColor = 'var(--ok)';
+        btn.style.color = 'var(--ok)';
+        setTimeout(function () {
+          if (copyIcon) copyIcon.innerHTML = copySVG;
+          if (copyLabel) copyLabel.textContent = 'Salin Nomor VA';
+          btn.style.borderColor = '';
+          btn.style.color = '';
+        }, 2000);
       });
     });
   }
+
+  // 2. Real-time Status Polling
   var el = document.getElementById('status');
-  if (!el || !window.fetch) return;
-  var text = document.getElementById('statustext');
-  var delay = 3000;
-  function poll() {
-    fetch(el.dataset.poll, { headers: { 'Accept': 'application/json' } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
-        if (!d) { return schedule(); }
-        if (d.paid) {
-          el.classList.add('paid');
-          text.textContent = 'Pembayaran diterima';
-          if (d.redirect_url) { setTimeout(function () { location.href = d.redirect_url; }, 1200); }
-          return;
-        }
-        if (d.expired) { text.textContent = 'Pembayaran kedaluwarsa'; return; }
-        schedule();
-      })
-      .catch(schedule);
-  }
-  function schedule() {
-    // Back off gradually so a tab left open overnight does not keep polling
-    // every few seconds.
-    delay = Math.min(delay * 1.3, 30000);
+  if (el && window.fetch) {
+    var text = document.getElementById('statustext');
+    var delay = 2500;
+    function poll() {
+      fetch(el.dataset.poll, { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d) { return schedule(); }
+          if (d.paid) {
+            el.classList.add('paid');
+            text.textContent = 'Pembayaran Diterima!';
+            if (d.redirect_url) {
+              setTimeout(function () { location.href = d.redirect_url; }, 1200);
+            }
+            return;
+          }
+          if (d.expired) {
+            text.textContent = 'Pembayaran Kedaluwarsa';
+            return;
+          }
+          schedule();
+        })
+        .catch(schedule);
+    }
+    function schedule() {
+      delay = Math.min(delay * 1.25, 20000);
+      setTimeout(poll, delay);
+    }
     setTimeout(poll, delay);
   }
-  setTimeout(poll, delay);
+
+  // 3. QRIS Live Countdown Timer
+  var timerEl = document.getElementById('qris-timer');
+  var timerText = document.getElementById('timer-text');
+  if (timerEl && timerText) {
+    var totalSeconds = 15 * 60;
+    var timerInterval = setInterval(function () {
+      totalSeconds--;
+      if (totalSeconds <= 0) {
+        clearInterval(timerInterval);
+        timerEl.innerHTML = '<span class="icon-inline">' + alertSVG + '</span><span>Waktu pembayaran telah habis</span>';
+        return;
+      }
+      var minutes = Math.floor(totalSeconds / 60);
+      var seconds = totalSeconds % 60;
+      timerText.textContent = 'Selesaikan pembayaran dalam ' + 
+        (minutes < 10 ? '0' : '') + minutes + ':' + 
+        (seconds < 10 ? '0' : '') + seconds;
+    }, 1000);
+  }
 })();
 </script>
 {{end}}
