@@ -7,624 +7,716 @@
 <title>{{if .Brand}}{{.Brand}} — {{end}}Pembayaran Aman</title>
 <style>
 :root {
-  --bg: #f8fafc;
+  --bg: #f1f5f9;
   --card: #ffffff;
-  --card-subtle: #f1f5f9;
+  --card-subtle: #f8fafc;
   --fg: #0f172a;
-  --muted: #64748b;
+  --fg-muted: #64748b;
+  --fg-subtle: #94a3b8;
   --line: #e2e8f0;
-  --line-focus: #94a3b8;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-light: #eff6ff;
+  --line-subtle: #f1f5f9;
+  --accent: #0f172a;
+  --accent-fg: #f8fafc;
+  --accent-hover: #1e293b;
+  --sky-bg: #f0f9ff;
+  --sky-border: #bae6fd;
+  --sky-fg: #0369a1;
+  --sky-dark: #0c4a6e;
   --ok: #16a34a;
   --ok-bg: #f0fdf4;
-  --warn: #ea580c;
-  --warn-bg: #fff7ed;
-  --radius: 12px;
+  --ok-border: #bbf7d0;
+  --fail: #dc2626;
+  --fail-bg: #fef2f2;
+  --fail-border: #fecaca;
+  --radius: 14px;
   --radius-sm: 8px;
-  --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0b0f17;
-    --card: #151b26;
-    --card-subtle: #1c2433;
-    --fg: #f1f5f9;
-    --muted: #94a3b8;
-    --line: #232d3f;
-    --line-focus: #3b4861;
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --accent-light: #172554;
+    --card: #020617;
+    --card-subtle: #0f172a;
+    --fg: #f8fafc;
+    --fg-muted: #94a3b8;
+    --fg-subtle: #64748b;
+    --line: #1e293b;
+    --line-subtle: #0f172a;
+    --accent: #f8fafc;
+    --accent-fg: #0f172a;
+    --accent-hover: #e2e8f0;
+    --sky-bg: rgba(3, 105, 161, 0.15);
+    --sky-border: rgba(3, 105, 161, 0.3);
+    --sky-fg: #7dd3fc;
+    --sky-dark: #e0f2fe;
     --ok: #22c55e;
-    --ok-bg: #052e16;
-    --warn: #f97316;
-    --warn-bg: #431407;
-    --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
+    --ok-bg: rgba(34, 197, 94, 0.12);
+    --ok-border: rgba(34, 197, 94, 0.25);
+    --fail: #ef4444;
+    --fail-bg: rgba(239, 68, 68, 0.12);
+    --fail-border: rgba(239, 68, 68, 0.25);
   }
 }
-* { box-sizing: border-box; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  margin: 0;
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-}
-.container {
-  max-width: 440px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
-}
-.header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-  padding: 0 0.25rem;
-}
-.brand-info {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-.brand-avatar {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  padding: 1rem;
 }
-.brand-text-wrap {
-  display: flex;
-  flex-direction: column;
-}
-.brand-name {
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-  line-height: 1.2;
-}
-.brand-verified {
-  font-size: 0.6875rem;
-  color: var(--ok);
-  font-weight: 600;
-  line-height: 1.2;
-}
-.security-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ok);
-  background: var(--ok-bg);
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-}
-.card {
+
+.modal-dialog {
+  width: 100%;
+  max-width: 420px;
+  min-height: 600px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-  box-shadow: var(--shadow);
-}
-.card-hero {
-  border-top: 4px solid var(--accent);
-}
-.amount-label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
-}
-.total-amount {
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--fg);
-  line-height: 1.2;
-}
-.order-desc {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: var(--muted);
-  border-top: 1px dashed var(--line);
-  padding-top: 0.5rem;
-}
-.section-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.method-list {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-.method-btn {
-  display: flex;
-  width: 100%;
-  align-items: center;
   justify-content: space-between;
-  padding: 0.875rem 1rem;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--fg);
-  font: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-align: left;
+  position: relative;
+  animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.method-btn:hover {
-  border-color: var(--accent);
-  background: var(--accent-light);
-  transform: translateY(-1px);
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
-.method-btn:active {
-  transform: translateY(0);
-}
-.method-info {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-}
-.method-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.method-logo svg,
-.method-logo img {
-  height: 26px;
-  width: auto;
-  max-width: 96px;
-}
-.method-text {
+
+/* Header & Top Bar Actions */
+.dialog-header {
+  padding: 1.25rem 1.25rem 0;
+  background: var(--card-subtle);
+  border-bottom: 1px solid var(--line);
   display: flex;
   flex-direction: column;
+  position: relative;
 }
-.method-title {
-  font-weight: 600;
-  font-size: 0.9375rem;
-}
-.method-subtitle {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-.chevron-icon {
+
+.top-actions {
+  position: absolute;
+  right: 0.85rem;
+  top: 0.85rem;
   display: flex;
-  align-items: center;
-  color: var(--muted);
-}
-.qr-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.25rem 0.5rem;
-}
-.qris-header {
-  background: #EE3124;
-  color: #ffffff;
-  width: 100%;
-  max-width: 280px;
-  padding: 0.5rem;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  text-align: center;
-  font-weight: 900;
-  font-size: 1rem;
-  letter-spacing: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-.qr-frame {
-  background: #ffffff;
-  padding: 1rem;
-  border: 2px solid #EE3124;
-  border-top: none;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.qr-image {
-  width: 220px;
-  height: 220px;
-  image-rendering: pixelated;
-}
-.qr-timer {
-  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.75rem;
-  font-size: 0.8125rem;
-  color: var(--warn);
-  font-weight: 600;
-  background: var(--warn-bg);
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid rgba(234, 88, 12, 0.2);
+  z-index: 20;
 }
+
+.lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.lang-btn:hover { color: var(--fg); background: var(--line-subtle); }
+
+.dialog-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding-right: 4.5rem;
+}
+
+.brand-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 900;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.dialog-title-text {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  flex: 1;
+}
+
+.nav-back-btn {
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  margin-left: -0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+.nav-back-btn:hover { color: var(--fg); }
+
+.dialog-desc {
+  margin: 0 -1.25rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.total-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.total-amount {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  margin: 0.25rem 0;
+}
+
+.timer-pill {
+  margin: 0.65rem -1.25rem -0.75rem;
+  padding: 0.35rem 1.25rem;
+  background: var(--sky-bg);
+  border-top: 1px solid var(--sky-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--sky-fg);
+}
+
+.timer-left {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pulse-icon { animation: pulse 1.8s infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+.timer-clock {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--sky-dark);
+}
+
+.dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dialog-body-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialog-footer {
+  padding: 0.875rem 1.25rem;
+  background: var(--card-subtle);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+/* Item List Components */
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+  width: 100%;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+}
+.item-row:hover {
+  background: var(--line-subtle);
+}
+
+.item-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.item-desc {
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  width: 100%;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  color: var(--fg-subtle);
+  flex-shrink: 0;
+  gap: 0.25rem;
+}
+
+.count-pill {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--fg-subtle);
+}
+
+.separator {
+  height: 1px;
+  width: 100%;
+  background: var(--line-subtle);
+  margin: 0.25rem 0;
+}
+
+/* Logo Badges */
+.badge-frame {
+  width: 40px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  overflow: hidden;
+  padding: 2px;
+  flex-shrink: 0;
+}
+.badge-frame-sm {
+  width: 32px;
+  height: 20px;
+}
+.badge-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.badges-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  width: 100%;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+.btn-outline {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--fg);
+}
+.btn-outline:hover {
+  background: var(--card-subtle);
+}
+
+/* Accordion */
+.collapsible {
+  background: var(--sky-bg);
+  border: 1px solid var(--sky-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.75rem;
+}
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--sky-fg);
+  user-select: none;
+}
+.collapsible-content {
+  display: none;
+  padding-top: 0.5rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--sky-border);
+  color: var(--sky-dark);
+}
+.collapsible-content.open { display: block; }
+.collapsible-content ol {
+  padding-left: 1.1rem;
+  margin: 0;
+}
+.collapsible-content li { margin-bottom: 0.25rem; }
+
+/* VA Box */
 .va-box {
   background: var(--card-subtle);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 1rem;
-  margin: 0.75rem 0;
-  text-align: center;
+  padding: 0.85rem;
+  margin-top: 0.5rem;
 }
-.va-label {
-  font-size: 0.75rem;
-  color: var(--muted);
+.va-box-label {
+  font-size: 0.6875rem;
+  color: var(--fg-muted);
   font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 0.25rem;
 }
-.va-number {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--fg);
-  word-break: break-all;
-}
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.65rem;
-  padding: 0.45rem 1rem;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--accent);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.copy-btn:hover {
-  background: var(--accent-light);
-  border-color: var(--accent);
-}
-.status-pill {
+.va-box-row {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius-sm);
-  background: var(--card-subtle);
-  font-size: 0.875rem;
-  font-weight: 500;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }
-.pulse-dot {
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(37,99,235,0.7);
-  animation: pulse 1.8s infinite;
+.va-box-num {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--fg);
 }
-@keyframes pulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37,99,235,0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(37,99,235,0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37,99,235,0); }
-}
-.status-pill.paid {
-  background: var(--ok-bg);
-  color: var(--ok);
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.6875rem;
   font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
 }
-.status-pill.paid .pulse-dot {
-  background: var(--ok);
-  animation: none;
-  box-shadow: none;
-}
-.instructions-guide {
-  margin-top: 1rem;
-  border-top: 1px solid var(--line);
-  padding-top: 0.75rem;
-}
-.guide-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 0.5rem;
-}
-.guide-steps {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-.guide-steps li {
-  margin-bottom: 0.35rem;
-}
-.footer-trust {
-  text-align: center;
-  margin-top: 1.75rem;
-  font-size: 0.75rem;
-  color: var(--muted);
+.btn-copy:hover { background: var(--line-subtle); }
+.btn-copy.copied { color: var(--ok); border-color: var(--ok); }
+
+/* QR Container */
+.qr-box {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-}
-.footer-trust-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin-top: 1rem;
-}
-.back-link:hover {
-  text-decoration: underline;
-}
-.err-box {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  padding: 0.75rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  margin-bottom: 1rem;
-}
-@media (prefers-color-scheme: dark) {
-  .err-box {
-    background: #450a0a;
-    border-color: #7f1d1d;
-    color: #fca5a5;
-  }
-}
-.icon-inline {
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
+  padding: 0.5rem;
 }
+.qr-frame {
+  background: #ffffff;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.qr-frame img {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+
+/* Card Form Inputs */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.65rem;
+  text-align: left;
+}
+.form-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+.form-input {
+  width: 100%;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 0 0.65rem;
+  font-size: 0.75rem;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  outline: none;
+}
+.form-input:focus {
+  border-color: var(--accent);
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+/* Combobox Search */
+.combobox-search {
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+.combobox-search input {
+  width: 100%;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 0 0.65rem 0 1.8rem;
+  font-size: 0.75rem;
+  color: var(--fg);
+  outline: none;
+}
+.combobox-search-icon {
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+}
+
+.view-panel { display: none; }
+.view-panel.active { display: flex; flex-direction: column; flex: 1; justify-content: space-between; }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header-bar">
-    <div class="brand-info">
-      <div class="brand-avatar">{{logo "merchant"}}</div>
-      <div class="brand-text-wrap">
-        <span class="brand-name brand">{{if .Brand}}{{.Brand}}{{else}}PayRouter{{end}}</span>
-        <span class="brand-verified">Verified Merchant</span>
-      </div>
-    </div>
-    <div class="security-badge">
-      <span class="icon-inline">{{logo "lock"}}</span>
-      <span>256-Bit SSL</span>
-    </div>
-  </div>
 
+<div class="modal-dialog card">
   {{.Content}}
-
-  <div class="footer-trust">
-    <div class="footer-trust-line">
-      <span class="icon-inline">{{logo "lock"}}</span>
-      <span>Pembayaran diproses dengan standar keamanan Bank Indonesia.</span>
-    </div>
-    <span>Powered by PayRouter Facade</span>
-  </div>
-</div>
-</body>
-</html>{{end}}
-
-{{define "summary"}}
-<div class="card card-hero">
-  <div class="amount-label">Total Pembayaran</div>
-  <div class="total-amount total">{{.AmountText}}</div>
-  {{if .Description}}<div class="order-desc desc">{{.Description}}</div>{{end}}
-</div>
-{{end}}
-
-{{define "picker"}}
-{{template "summary" .}}
-{{if .Error}}
-<div class="err-box">
-  <span class="icon-inline">{{logo "alert"}}</span>
-  <span>{{.Error}}</span>
-</div>
-{{end}}
-<div class="card">
-  <div class="section-title">Pilih Metode Pembayaran</div>
-  <div class="method-list">
-    {{range .Methods}}
-      {{if .Options}}
-        {{$method := .Method}}
-        {{range .Options}}
-        <form method="POST" action="{{$.BasePath}}/pay">
-          <input type="hidden" name="method" value="{{$method}}">
-          <input type="hidden" name="option" value="{{.Value}}">
-          <button class="method-btn" type="submit">
-            <div class="method-info">
-              <div class="method-logo">{{logo .Value}}</div>
-              <div class="method-text">
-                <span class="method-title">{{.Label}} Virtual Account</span>
-                <span class="method-subtitle">Konfirmasi otomatis 24 jam</span>
-              </div>
-            </div>
-            <span class="chevron-icon">{{logo "chevron"}}</span>
-          </button>
-        </form>
-        {{end}}
-      {{else}}
-        <form method="POST" action="{{$.BasePath}}/pay">
-          <input type="hidden" name="method" value="{{.Method}}">
-          <button class="method-btn" type="submit">
-            <div class="method-info">
-              <div class="method-logo">{{logo .Method}}</div>
-              <div class="method-text">
-                <span class="method-title">{{.Label}}</span>
-                <span class="method-subtitle">Scan via GoPay, OVO, DANA, BCA, dll</span>
-              </div>
-            </div>
-            <span class="chevron-icon">{{logo "chevron"}}</span>
-          </button>
-        </form>
-      {{end}}
-    {{end}}
-  </div>
-</div>
-{{end}}
-
-{{define "instructions"}}
-{{template "summary" .}}
-<div class="card">
-  {{if .QRImage}}
-    <div class="qr-container">
-      <div class="qris-header">
-        <span>QRIS</span>
-      </div>
-      <div class="qr-frame">
-        <img class="qr-image qr" src="{{.QRImage}}" alt="Kode QRIS untuk {{.AmountText}}" width="220" height="220">
-      </div>
-      <div class="qr-timer" id="qris-timer" data-expires="{{.ExpiresText}}">
-        <span class="icon-inline">{{logo "timer"}}</span>
-        <span id="timer-text">Selesaikan pembayaran dalam 15:00</span>
-      </div>
-    </div>
-    <div class="instructions-guide">
-      <div class="guide-title">Cara Pembayaran QRIS:</div>
-      <ol class="guide-steps">
-        <li>Buka aplikasi m-Banking atau E-Wallet (BCA Mobile, Livin', GoPay, OVO, ShopeePay, DANA, dll).</li>
-        <li>Pilih menu <strong>Pindai / Scan QRIS</strong>.</li>
-        <li>Arahkan kamera ke kode QR di atas.</li>
-        <li>Periksa nama merchant dan jumlah total pembayaran, lalu masukkan PIN.</li>
-      </ol>
-    </div>
-  {{else if .QRFallbackURL}}
-    <div class="qr-container">
-      <img class="qr-image qr" src="{{.QRFallbackURL}}" alt="Kode QRIS untuk {{.AmountText}}">
-    </div>
-  {{end}}
-
-  {{if .VANumber}}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
-      <div class="section-title" style="margin:0">{{.BankLabel}} Virtual Account</div>
-      <div class="method-logo">{{logo .BankLabel}}</div>
-    </div>
-    
-    <div class="va-box">
-      <div class="va-label">Nomor Rekening Virtual Account</div>
-      <div class="va-number" id="vanum">{{.VANumber}}</div>
-      {{if .BillerCode}}<div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">Kode Perusahaan: <strong>{{.BillerCode}}</strong></div>{{end}}
-      <button class="copy-btn copy" type="button" data-copy="{{.VANumber}}">
-        <span class="icon-inline" id="copy-icon">{{logo "copy"}}</span>
-        <span id="copy-label">Salin Nomor VA</span>
-      </button>
-      {{if .AccountName}}<div style="font-size:0.8125rem;color:var(--muted);margin-top:0.4rem">Atas Nama: <strong>{{.AccountName}}</strong></div>{{end}}
-    </div>
-
-    {{if .ExpiresText}}
-      <div style="font-size:0.75rem;color:var(--muted);text-align:center;margin-top:0.5rem">
-        Berlaku sampai: <strong>{{.ExpiresText}}</strong>
-      </div>
-    {{end}}
-
-    <div class="instructions-guide">
-      <div class="guide-title">Cara Transfer Virtual Account:</div>
-      <ol class="guide-steps">
-        <li>Buka aplikasi Mobile Banking atau ATM bank Anda.</li>
-        <li>Pilih menu <strong>Transfer / Bayar</strong> &gt; <strong>Virtual Account</strong>.</li>
-        <li>Masukkan nomor Virtual Account <strong>{{.VANumber}}</strong>.</li>
-        <li>Pastikan rincian nama dan nominal sesuai, lalu konfirmasi pembayaran.</li>
-      </ol>
-    </div>
-  {{end}}
-</div>
-
-<div class="card" style="padding: 0.875rem 1.25rem;">
-  <div class="status-pill" id="status" data-poll="{{.BasePath}}/status">
-    <div class="pulse-dot"></div>
-    <span id="statustext">Menunggu verifikasi pembayaran…</span>
-  </div>
-  <noscript><p class="muted" style="font-size:0.75rem;text-align:center;margin:0.5rem 0 0">Muat ulang halaman ini setelah membayar.</p></noscript>
-</div>
-
-<div style="text-align:center">
-  <a class="back-link" href="{{.BasePath}}">
-    <span class="icon-inline">{{logo "arrow-left"}}</span>
-    <span>Pilih metode pembayaran lain</span>
-  </a>
 </div>
 
 <script>
-(function () {
-  // Checkmark SVG vector markup
-  var checkSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  var copySVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
-  var alertSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+// --- i18n Dictionary ---
+var currentLang = 'ID';
+var i18n = {
+  ID: {
+    total: "Total Pembayaran",
+    expiresIn: "Pembayaran kadaluwarsa dalam",
+    payNow: "Bayar Sekarang",
+    back: "Kembali",
+    qris: "QRIS",
+    ewallet: "E-Wallet",
+    va: "Virtual Account",
+    card: "Kartu Kredit/Debit",
+    selectEwallet: "Pilih E-Wallet",
+    selectVa: "Pilih Virtual Account",
+    vaDetails: "Detail Virtual Account",
+    otherBanks: "Bank lainnya",
+    downloadQris: "Unduh QRIS",
+    checkStatus: "Cek status",
+    copied: "Tersalin ✓",
+    copy: "Salin",
+    howToPay: "Cara pembayaran",
+    howCardWorks: "Cara kerja pembayaran kartu",
+    cardInfo: "Informasi Kartu",
+    cardNumber: "Nomor Kartu",
+    expDate: "Tanggal Kadaluwarsa",
+    cvv: "CVV / CVC",
+    qrisDesc: "Pindai via GoPay, OVO, DANA, ShopeePay, BCA, dll",
+    secBadge: "Enkripsi 256-bit SSL & verifikasi 3D Secure"
+  },
+  EN: {
+    total: "Total Amount",
+    expiresIn: "Payment expires in",
+    payNow: "Pay Now",
+    back: "Back",
+    qris: "QRIS",
+    ewallet: "E-Wallet",
+    va: "Virtual Account",
+    card: "Credit/Debit Card",
+    selectEwallet: "Select E-Wallet",
+    selectVa: "Select Virtual Account",
+    vaDetails: "Virtual Account Details",
+    otherBanks: "Other banks",
+    downloadQris: "Download QRIS",
+    checkStatus: "Check status",
+    copied: "Copied ✓",
+    copy: "Copy",
+    howToPay: "How to pay",
+    howCardWorks: "How card payment works",
+    cardInfo: "Card Information",
+    cardNumber: "Card Number",
+    expDate: "Expiration Date",
+    cvv: "CVV / CVC",
+    qrisDesc: "Scan via GoPay, OVO, DANA, ShopeePay, BCA, etc",
+    secBadge: "256-bit SSL encryption & 3D Secure verified"
+  }
+};
 
-  // 1. Interactive Copy Button
-  var btn = document.querySelector('.copy-btn');
-  if (btn && navigator.clipboard) {
-    var copyIcon = document.getElementById('copy-icon');
-    var copyLabel = document.getElementById('copy-label');
-    btn.addEventListener('click', function () {
-      var copyText = btn.dataset.copy || document.getElementById('vanum').textContent.trim();
-      navigator.clipboard.writeText(copyText).then(function () {
-        if (copyIcon) copyIcon.innerHTML = checkSVG;
-        if (copyLabel) copyLabel.textContent = 'Tersalin';
-        btn.style.borderColor = 'var(--ok)';
-        btn.style.color = 'var(--ok)';
-        setTimeout(function () {
-          if (copyIcon) copyIcon.innerHTML = copySVG;
-          if (copyLabel) copyLabel.textContent = 'Salin Nomor VA';
-          btn.style.borderColor = '';
-          btn.style.color = '';
+function toggleLang() {
+  currentLang = currentLang === 'ID' ? 'EN' : 'ID';
+  var btn = document.getElementById('lang-toggle-text');
+  if (btn) btn.textContent = currentLang;
+  var dict = i18n[currentLang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var k = el.getAttribute('data-i18n');
+    if (dict[k]) el.textContent = dict[k];
+  });
+}
+
+// --- Navigation & View Controller ---
+function showView(viewId, title) {
+  document.querySelectorAll('.view-panel').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  var target = document.getElementById(viewId);
+  if (target) target.classList.add('active');
+  var titleEl = document.getElementById('view-title');
+  if (titleEl && title) titleEl.textContent = title;
+}
+
+function filterBanks() {
+  var q = document.getElementById('bank-search-input').value.toLowerCase().trim();
+  document.querySelectorAll('.bank-item').forEach(function(el) {
+    var name = el.textContent.toLowerCase();
+    el.style.display = (q === '' || name.indexOf(q) !== -1) ? 'flex' : 'none';
+  });
+}
+
+function toggleCollapsible(el) {
+  var content = el.nextElementSibling;
+  if (content) {
+    content.classList.toggle('open');
+    var chevron = el.querySelector('.chevron-toggle');
+    if (chevron) {
+      chevron.style.transform = content.classList.contains('open') ? 'rotate(180deg)' : 'none';
+    }
+  }
+}
+
+function copyVA(val) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(val).then(function() {
+      var copyText = document.getElementById('copy-text');
+      var btn = document.querySelector('.btn-copy');
+      if (copyText && btn) {
+        copyText.textContent = currentLang === 'ID' ? 'Tersalin ✓' : 'Copied ✓';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          copyText.textContent = currentLang === 'ID' ? 'Salin' : 'Copy';
+          btn.classList.remove('copied');
         }, 2000);
-      });
+      }
     });
   }
+}
 
-  // 2. Real-time Status Polling
+function downloadQR() {
+  var img = document.getElementById('qr-img');
+  if (img) {
+    var a = document.createElement('a');
+    a.href = img.src;
+    a.download = 'qris-payment.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
+// --- Live Countdown Timer ---
+(function() {
+  var timerEl = document.getElementById('timer-clock');
+  if (timerEl) {
+    var totalSeconds = 3599;
+    var interval = setInterval(function() {
+      totalSeconds--;
+      if (totalSeconds <= 0) {
+        clearInterval(interval);
+        timerEl.textContent = '00:00:00';
+        return;
+      }
+      var hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+      var mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+      var secs = String(totalSeconds % 60).padStart(2, '0');
+      timerEl.textContent = hrs + ':' + mins + ':' + secs;
+    }, 1000);
+  }
+})();
+
+// --- Real-time Polling ---
+(function() {
   var el = document.getElementById('status');
   if (el && window.fetch) {
     var text = document.getElementById('statustext');
     var delay = 2500;
     function poll() {
       fetch(el.dataset.poll, { headers: { 'Accept': 'application/json' } })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
           if (!d) { return schedule(); }
           if (d.paid) {
             el.classList.add('paid');
+            el.style.background = 'var(--ok-bg)';
+            el.style.color = 'var(--ok)';
+            el.style.borderColor = 'var(--ok-border)';
             text.textContent = 'Pembayaran Diterima!';
             if (d.redirect_url) {
-              setTimeout(function () { location.href = d.redirect_url; }, 1200);
+              setTimeout(function() { location.href = d.redirect_url; }, 1200);
             }
             return;
           }
           if (d.expired) {
+            el.style.background = 'var(--fail-bg)';
+            el.style.color = 'var(--fail)';
             text.textContent = 'Pembayaran Kedaluwarsa';
             return;
           }
@@ -638,26 +730,558 @@ body {
     }
     setTimeout(poll, delay);
   }
-
-  // 3. QRIS Live Countdown Timer
-  var timerEl = document.getElementById('qris-timer');
-  var timerText = document.getElementById('timer-text');
-  if (timerEl && timerText) {
-    var totalSeconds = 15 * 60;
-    var timerInterval = setInterval(function () {
-      totalSeconds--;
-      if (totalSeconds <= 0) {
-        clearInterval(timerInterval);
-        timerEl.innerHTML = '<span class="icon-inline">' + alertSVG + '</span><span>Waktu pembayaran telah habis</span>';
-        return;
-      }
-      var minutes = Math.floor(totalSeconds / 60);
-      var seconds = totalSeconds % 60;
-      timerText.textContent = 'Selesaikan pembayaran dalam ' + 
-        (minutes < 10 ? '0' : '') + minutes + ':' + 
-        (seconds < 10 ? '0' : '') + seconds;
-    }, 1000);
-  }
 })();
 </script>
+
+</body>
+</html>{{end}}
+
+{{define "summary"}}
+<div class="dialog-header">
+  <div class="top-actions">
+    <button type="button" class="lang-btn" onclick="toggleLang()" title="Ganti Bahasa / Change Language">
+      <span style="display:inline-flex">{{logo "globe"}}</span>
+      <span id="lang-toggle-text">ID</span>
+    </button>
+  </div>
+
+  <div class="dialog-title-bar">
+    <div class="brand-badge brand">{{if .Brand}}{{.Brand}}{{else}}PR{{end}}</div>
+    <span class="dialog-title-text" id="view-title" data-i18n="selectPayment">Pilih Pembayaran</span>
+  </div>
+  <div class="dialog-desc">
+    <div class="total-meta">
+      <span data-i18n="total">Total Pembayaran</span>
+      <span class="desc" style="font-family:var(--font-mono)">{{if .Description}}{{.Description}}{{else}}Order #12345{{end}}</span>
+    </div>
+    <div class="total-amount total">{{.AmountText}}</div>
+    <div class="timer-pill">
+      <div class="timer-left">
+        <span class="pulse-icon">{{logo "clock"}}</span>
+        <span data-i18n="expiresIn">Batas waktu bayar</span>
+      </div>
+      <span class="timer-clock" id="timer-clock">00:59:59</span>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "picker"}}
+{{template "summary" .}}
+
+<!-- VIEW 1: Main Method List -->
+<div class="view-panel active" id="view-list">
+  <div class="dialog-body">
+    <div class="dialog-body-top">
+      <!-- Option 1: QRIS (Direct Form) -->
+      <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+        <input type="hidden" name="method" value="id_qris">
+        <button class="item-row" type="submit">
+          <div class="item-content">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+              <div style="display:flex;align-items:center;gap:0.35rem">
+                <div class="badge-frame" style="width:auto;padding:0.2rem 0.4rem;gap:0.25rem">
+                  {{logo "gpn"}}
+                  {{logo "qris"}}
+                </div>
+              </div>
+              <span class="item-title" style="font-size:1.15rem;font-weight:800">QRIS</span>
+            </div>
+            <div class="item-desc" data-i18n="qrisDesc" style="font-size:0.6875rem;color:var(--fg-muted)">Scan via GoPay, OVO, DANA, ShopeePay, BCA, dll</div>
+          </div>
+          <div class="item-actions">{{logo "chevron-right"}}</div>
+        </button>
+      </form>
+      <div class="separator"></div>
+
+      <!-- Option 2: E-Wallet -->
+      <button class="item-row" type="button" onclick="showView('view-ewallet-list', 'E-Wallet')">
+        <div class="item-content">
+          <span class="item-title" data-i18n="ewallet">E-Wallet</span>
+          <div class="badges-row">
+            <div class="badge-frame badge-frame-sm">{{logo "gopay"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "ovo"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "shopeepay"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "dana"}}</div>
+          </div>
+        </div>
+        <div class="item-actions">
+          <span class="count-pill">5 pilihan</span>
+          {{logo "chevron-right"}}
+        </div>
+      </button>
+      <div class="separator"></div>
+
+      <!-- Option 3: Virtual Account -->
+      <button class="item-row" id="open-va-list" type="button" onclick="showView('view-va-list', 'Virtual Account')">
+        <div class="item-content">
+          <span class="item-title" data-i18n="va">Virtual Account</span>
+          <div class="badges-row">
+            <div class="badge-frame badge-frame-sm">{{logo "bca"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "mandiri"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "bni"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "bri"}}</div>
+          </div>
+        </div>
+        <div class="item-actions">
+          <span class="count-pill">5 bank</span>
+          {{logo "chevron-right"}}
+        </div>
+      </button>
+      <div class="separator"></div>
+
+      <!-- Option 4: Credit / Debit Card -->
+      <button class="item-row" type="button" onclick="showView('view-card', 'Kartu Kredit / Debit')">
+        <div class="item-content">
+          <span class="item-title" data-i18n="card">Kartu Kredit / Debit</span>
+          <div class="badges-row">
+            <div class="badge-frame badge-frame-sm">{{logo "visa"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "mastercard"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "jcb"}}</div>
+            <div class="badge-frame badge-frame-sm">{{logo "amex"}}</div>
+          </div>
+        </div>
+        <div class="item-actions">
+          <span class="count-pill">4 jaringan</span>
+          {{logo "chevron-right"}}
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <div style="display:flex;align-items:center;justify-content:center;gap:0.35rem;font-size:0.6875rem;color:var(--fg-muted)">
+      {{logo "shield-check"}}
+      <span>Diproses aman oleh PayRouter Facade</span>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW 2: QRIS View -->
+<div class="view-panel" id="view-qris">
+  <div class="dialog-body">
+    <div class="dialog-body-top">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:0.8125rem;font-weight:600">Pindai Kode QRIS</span>
+        <div style="display:flex;align-items:center;gap:0.25rem">
+          {{logo "gpn"}}
+          {{logo "qris"}}
+        </div>
+      </div>
+
+      <form method="POST" action="{{$.BasePath}}/pay" id="qris-form">
+        <input type="hidden" name="method" value="id_qris">
+        <div class="qr-box">
+          <div class="qr-frame">
+            {{if .QRImage}}
+              <img src="{{.QRImage}}" alt="QRIS Code">
+            {{else}}
+              <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'><rect width='180' height='180' fill='%23fff'/><text x='90' y='95' font-family='sans-serif' font-size='11' text-anchor='middle' fill='%23666'>Memuat QRIS...</text></svg>" alt="Memuat QRIS...">
+            {{end}}
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="collapsible" style="margin-top:auto">
+      <div class="collapsible-header" onclick="toggleCollapsible(this)">
+        <div style="display:flex;align-items:center;gap:0.35rem">
+          {{logo "info"}}
+          <span data-i18n="howToPay">Petunjuk Pembayaran QRIS</span>
+        </div>
+        <span class="chevron-toggle">{{logo "chevron-down"}}</span>
+      </div>
+      <div class="collapsible-content">
+        <ol>
+          <li>Buka aplikasi m-Banking atau E-Wallet pilihan Anda.</li>
+          <li>Pilih menu <strong>Pindai / Scan QRIS</strong>.</li>
+          <li>Arahkan kamera ke kode QR di atas.</li>
+          <li>Periksa nominal dan konfirmasi pembayaran.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <button class="btn btn-primary" type="button" onclick="document.getElementById('qris-form').submit()">
+      {{logo "check-circle-2"}}
+      <span data-i18n="payNow">Bayar Sekarang (QRIS)</span>
+    </button>
+    <button class="btn btn-outline" type="button" onclick="showView('view-list', 'Pilih Pembayaran')">
+      {{logo "chevron-left"}}
+      <span data-i18n="back">Kembali</span>
+    </button>
+  </div>
+</div>
+
+<!-- VIEW 3: Virtual Account Bank List -->
+<div class="view-panel" id="view-va-list">
+  <div class="dialog-body">
+    <div class="dialog-body-top">
+      <div style="font-size:0.75rem;color:var(--fg-muted);margin-bottom:0.25rem">Pilih bank tujuan transfer Virtual Account:</div>
+
+      <!-- BCA -->
+      <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+        <input type="hidden" name="method" value="id_virtual_account">
+        <input type="hidden" name="option" value="bca">
+        <button class="item-row" type="submit">
+          <div class="item-content">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+              <div class="badge-frame">{{logo "bca"}}</div>
+              <span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">BCA</span>
+            </div>
+          </div>
+          <div class="item-actions">{{logo "chevron-right"}}</div>
+        </button>
+      </form>
+      <div class="separator"></div>
+
+      <!-- Mandiri -->
+      <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+        <input type="hidden" name="method" value="id_virtual_account">
+        <input type="hidden" name="option" value="mandiri">
+        <button class="item-row" type="submit">
+          <div class="item-content">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+              <div class="badge-frame">{{logo "mandiri"}}</div>
+              <span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">Mandiri</span>
+            </div>
+          </div>
+          <div class="item-actions">{{logo "chevron-right"}}</div>
+        </button>
+      </form>
+      <div class="separator"></div>
+
+      <!-- BNI -->
+      <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+        <input type="hidden" name="method" value="id_virtual_account">
+        <input type="hidden" name="option" value="bni">
+        <button class="item-row" type="submit">
+          <div class="item-content">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+              <div class="badge-frame">{{logo "bni"}}</div>
+              <span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">BNI</span>
+            </div>
+          </div>
+          <div class="item-actions">{{logo "chevron-right"}}</div>
+        </button>
+      </form>
+      <div class="separator"></div>
+
+      <!-- BRI -->
+      <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+        <input type="hidden" name="method" value="id_virtual_account">
+        <input type="hidden" name="option" value="bri">
+        <button class="item-row" type="submit">
+          <div class="item-content">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+              <div class="badge-frame">{{logo "bri"}}</div>
+              <span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">BRI</span>
+            </div>
+          </div>
+          <div class="item-actions">{{logo "chevron-right"}}</div>
+        </button>
+      </form>
+      <div class="separator"></div>
+
+      <!-- Permata -->
+      <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+        <input type="hidden" name="method" value="id_virtual_account">
+        <input type="hidden" name="option" value="permata">
+        <button class="item-row" type="submit">
+          <div class="item-content">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+              <div class="badge-frame">{{logo "permata"}}</div>
+              <span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">Permata Bank</span>
+            </div>
+          </div>
+          <div class="item-actions">{{logo "chevron-right"}}</div>
+        </button>
+      </form>
+      <div class="separator"></div>
+
+      <!-- Other Banks -->
+      <button class="item-row" type="button" onclick="showView('view-va-other', 'Bank Lainnya')">
+        <div class="item-content">
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem">
+            <span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem" data-i18n="otherBanks">Bank lainnya</span>
+          </div>
+        </div>
+        <div class="item-actions">{{logo "chevron-right"}}</div>
+      </button>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <button class="btn btn-outline" type="button" onclick="showView('view-list', 'Pilih Pembayaran')">
+      {{logo "chevron-left"}}
+      <span data-i18n="back">Kembali</span>
+    </button>
+  </div>
+</div>
+
+<!-- VIEW 4: VA Other Banks Searchable -->
+<div class="view-panel" id="view-va-other">
+  <div class="dialog-body">
+    <div class="dialog-body-top">
+      <div class="combobox-search">
+        <span class="combobox-search-icon">{{logo "search"}}</span>
+        <input type="text" id="bank-search-input" placeholder="Cari nama bank (BSI, BTN, Danamon...)" oninput="filterBanks()">
+      </div>
+
+      <div id="other-banks-list" style="display:flex;flex-direction:column;gap:0.25rem">
+        <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+          <input type="hidden" name="method" value="id_virtual_account">
+          <input type="hidden" name="option" value="bsi">
+          <button class="item-row bank-item" type="submit">
+            <div class="item-content"><div style="display:flex;align-items:center;gap:0.5rem"><div class="badge-frame">{{logo "bsi"}}</div><span class="item-title">Bank Syariah Indonesia (BSI)</span></div></div>
+            <div class="item-actions">{{logo "chevron-right"}}</div>
+          </button>
+        </form>
+        <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+          <input type="hidden" name="method" value="id_virtual_account">
+          <input type="hidden" name="option" value="btn">
+          <button class="item-row bank-item" type="submit">
+            <div class="item-content"><div style="display:flex;align-items:center;gap:0.5rem"><div class="badge-frame">{{logo "btn"}}</div><span class="item-title">Bank Tabungan Negara (BTN)</span></div></div>
+            <div class="item-actions">{{logo "chevron-right"}}</div>
+          </button>
+        </form>
+        <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+          <input type="hidden" name="method" value="id_virtual_account">
+          <input type="hidden" name="option" value="danamon">
+          <button class="item-row bank-item" type="submit">
+            <div class="item-content"><div style="display:flex;align-items:center;gap:0.5rem"><div class="badge-frame">{{logo "danamon"}}</div><span class="item-title">Bank Danamon</span></div></div>
+            <div class="item-actions">{{logo "chevron-right"}}</div>
+          </button>
+        </form>
+        <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+          <input type="hidden" name="method" value="id_virtual_account">
+          <input type="hidden" name="option" value="cimb">
+          <button class="item-row bank-item" type="submit">
+            <div class="item-content"><div style="display:flex;align-items:center;gap:0.5rem"><div class="badge-frame">{{logo "cimb"}}</div><span class="item-title">CIMB Niaga</span></div></div>
+            <div class="item-actions">{{logo "chevron-right"}}</div>
+          </button>
+        </form>
+        <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+          <input type="hidden" name="method" value="id_virtual_account">
+          <input type="hidden" name="option" value="maybank">
+          <button class="item-row bank-item" type="submit">
+            <div class="item-content"><div style="display:flex;align-items:center;gap:0.5rem"><div class="badge-frame">{{logo "maybank"}}</div><span class="item-title">Maybank Indonesia</span></div></div>
+            <div class="item-actions">{{logo "chevron-right"}}</div>
+          </button>
+        </form>
+        <form method="POST" action="{{$.BasePath}}/pay" style="display:contents">
+          <input type="hidden" name="method" value="id_virtual_account">
+          <input type="hidden" name="option" value="ocbc">
+          <button class="item-row bank-item" type="submit">
+            <div class="item-content"><div style="display:flex;align-items:center;gap:0.5rem"><div class="badge-frame">{{logo "ocbc"}}</div><span class="item-title">Bank OCBC NISP</span></div></div>
+            <div class="item-actions">{{logo "chevron-right"}}</div>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <button class="btn btn-outline" type="button" onclick="showView('view-va-list', 'Virtual Account')">
+      {{logo "chevron-left"}}
+      <span data-i18n="back">Kembali</span>
+    </button>
+  </div>
+</div>
+
+<!-- VIEW 5: Card Form -->
+<div class="view-panel" id="view-card">
+  <div class="dialog-body">
+    <div class="dialog-body-top">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.65rem">
+        <span style="font-size:0.75rem;font-weight:600" data-i18n="cardInfo">Informasi Kartu</span>
+        <div style="display:flex;align-items:center;gap:0.25rem">
+          {{logo "visa"}}
+          {{logo "mastercard"}}
+          {{logo "jcb"}}
+        </div>
+      </div>
+
+      <form method="POST" action="{{$.BasePath}}/pay" id="card-form">
+        <input type="hidden" name="method" value="id_card">
+        <div class="form-group">
+          <label class="form-label" data-i18n="cardNumber">Nomor Kartu (16 Digit)</label>
+          <input class="form-input" type="text" maxlength="19" placeholder="1234 5678 9012 3456" id="card-num">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" data-i18n="expDate">Masa Berlaku</label>
+            <input class="form-input" type="text" maxlength="5" placeholder="MM/YY">
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="cvv">CVV / CVC</label>
+            <input class="form-input" type="password" maxlength="4" placeholder="123">
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="collapsible" style="margin-top:auto">
+      <div class="collapsible-header" onclick="toggleCollapsible(this)">
+        <div style="display:flex;align-items:center;gap:0.35rem">
+          {{logo "info"}}
+          <span data-i18n="howCardWorks">Cara Kerja Pembayaran Kartu</span>
+        </div>
+        <span class="chevron-toggle">{{logo "chevron-down"}}</span>
+      </div>
+      <div class="collapsible-content">
+        <ol>
+          <li>Masukkan rincian kartu kredit / debit Anda di atas.</li>
+          <li>Klik tombol <strong>Bayar Sekarang</strong>.</li>
+          <li>Anda akan diarahkan ke verifikasi 3D Secure bank (OTP via SMS).</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <button class="btn btn-primary" type="button" onclick="document.getElementById('card-form').submit()">
+      {{logo "check-circle-2"}}
+      <span data-i18n="payNow">Bayar Sekarang (Kartu)</span>
+    </button>
+    <button class="btn btn-outline" type="button" onclick="showView('view-list', 'Pilih Pembayaran')">
+      {{logo "chevron-left"}}
+      <span data-i18n="back">Kembali</span>
+    </button>
+  </div>
+</div>
+
+<!-- VIEW 6: E-Wallet List -->
+<div class="view-panel" id="view-ewallet-list">
+  <div class="dialog-body">
+    <div class="dialog-body-top">
+      <div style="font-size:0.75rem;color:var(--fg-muted);margin-bottom:0.5rem">Pilih dompet digital favorit Anda:</div>
+
+      <button class="item-row" type="button" onclick="showView('view-qris', 'QRIS (GoPay)')">
+        <div class="item-content"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem"><div class="badge-frame">{{logo "gopay"}}</div><span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">GoPay</span></div></div>
+        <div class="item-actions">{{logo "chevron-right"}}</div>
+      </button>
+      <div class="separator"></div>
+
+      <button class="item-row" type="button" onclick="showView('view-qris', 'QRIS (OVO)')">
+        <div class="item-content"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem"><div class="badge-frame">{{logo "ovo"}}</div><span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">OVO</span></div></div>
+        <div class="item-actions">{{logo "chevron-right"}}</div>
+      </button>
+      <div class="separator"></div>
+
+      <button class="item-row" type="button" onclick="showView('view-qris', 'QRIS (ShopeePay)')">
+        <div class="item-content"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem"><div class="badge-frame">{{logo "shopeepay"}}</div><span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">ShopeePay</span></div></div>
+        <div class="item-actions">{{logo "chevron-right"}}</div>
+      </button>
+      <div class="separator"></div>
+
+      <button class="item-row" type="button" onclick="showView('view-qris', 'QRIS (DANA)')">
+        <div class="item-content"><div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:0.5rem"><div class="badge-frame">{{logo "dana"}}</div><span class="item-title" style="text-align:right;flex:1;padding-right:0.5rem">DANA</span></div></div>
+        <div class="item-actions">{{logo "chevron-right"}}</div>
+      </button>
+    </div>
+  </div>
+
+  <div class="dialog-footer">
+    <button class="btn btn-outline" type="button" onclick="showView('view-list', 'Pilih Pembayaran')">
+      {{logo "chevron-left"}}
+      <span data-i18n="back">Kembali</span>
+    </button>
+  </div>
+</div>
+{{end}}
+
+{{define "instructions"}}
+{{template "summary" .}}
+
+<div class="dialog-body">
+  <div class="dialog-body-top">
+    {{if .QRImage}}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:0.8125rem;font-weight:600">Pindai Kode QRIS</span>
+        <div style="display:flex;align-items:center;gap:0.25rem">
+          {{logo "gpn"}}
+          {{logo "qris"}}
+        </div>
+      </div>
+      <div class="qr-box">
+        <div class="qr-frame">
+          <img class="qr" src="{{.QRImage}}" alt="Kode QRIS untuk {{.AmountText}}" id="qr-img">
+        </div>
+      </div>
+    {{else if .QRFallbackURL}}
+      <div class="qr-box">
+        <div class="qr-frame">
+          <img class="qr" src="{{.QRFallbackURL}}" alt="Kode QRIS untuk {{.AmountText}}" id="qr-img">
+        </div>
+      </div>
+    {{end}}
+
+    {{if .VANumber}}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:0.8125rem;font-weight:600">{{.BankLabel}} Virtual Account</span>
+        <div class="badge-frame">{{logo .BankLabel}}</div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--fg-muted)">Transfer tepat ke nomor rekening di bawah ini:</div>
+
+      <div class="va-box">
+        <div class="va-box-label" data-i18n="vaDetails">Nomor Rekening Virtual Account</div>
+        <div class="va-box-row">
+          <span class="va-box-num" id="vanum">{{.VANumber}}</span>
+          <button class="btn-copy copy" type="button" data-copy="{{.VANumber}}" onclick="copyVA('{{.VANumber}}')">
+            <span id="copy-icon">{{logo "copy"}}</span>
+            <span id="copy-text" data-i18n="copy">Salin</span>
+          </button>
+        </div>
+        {{if .BillerCode}}<div style="font-size:0.6875rem;color:var(--fg-muted);margin-top:0.35rem">Kode Perusahaan: <strong>{{.BillerCode}}</strong></div>{{end}}
+        {{if .AccountName}}<div style="font-size:0.75rem;color:var(--fg-muted);margin-top:0.25rem">Atas Nama: <strong>{{.AccountName}}</strong></div>{{end}}
+      </div>
+    {{end}}
+
+    <div style="margin-top:0.75rem;padding:0.65rem 0.85rem;border-radius:var(--radius-sm);background:var(--card-subtle);border:1px solid var(--line);display:flex;align-items:center;gap:0.5rem;font-size:0.75rem" id="status" data-poll="{{.BasePath}}/status">
+      <div class="pulse-icon" style="color:var(--sky-fg)">{{logo "clock"}}</div>
+      <span id="statustext">Menunggu verifikasi pembayaran…</span>
+    </div>
+  </div>
+
+  <div class="collapsible" style="margin-top:auto">
+    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+      <div style="display:flex;align-items:center;gap:0.35rem">
+        {{logo "info"}}
+        <span data-i18n="howToPay">Petunjuk Pembayaran</span>
+      </div>
+      <span class="chevron-toggle">{{logo "chevron-down"}}</span>
+    </div>
+    <div class="collapsible-content">
+      <ol>
+        {{if .QRImage}}
+          <li>Buka aplikasi m-Banking atau E-Wallet (BCA, Livin', GoPay, OVO, dll).</li>
+          <li>Pilih menu <strong>Pindai / Scan QRIS</strong>.</li>
+          <li>Arahkan kamera ke kode QR di atas.</li>
+          <li>Konfirmasi nominal dan masukkan PIN.</li>
+        {{else}}
+          <li>Buka m-Banking atau ATM bank Anda.</li>
+          <li>Pilih menu <strong>Transfer &gt; Virtual Account</strong>.</li>
+          <li>Masukkan nomor Virtual Account <strong>{{.VANumber}}</strong>.</li>
+          <li>Pastikan nominal sesuai lalu konfirmasi pembayaran.</li>
+        {{end}}
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-footer">
+  {{if .QRImage}}
+  <button class="btn btn-outline" type="button" onclick="downloadQR()">
+    {{logo "download"}}
+    <span data-i18n="downloadQris">Unduh QRIS</span>
+  </button>
+  {{end}}
+
+  <a class="btn btn-outline" href="{{.BasePath}}">
+    {{logo "chevron-left"}}
+    <span data-i18n="back">Pilih metode pembayaran lain</span>
+  </a>
+</div>
 {{end}}

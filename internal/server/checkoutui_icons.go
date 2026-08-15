@@ -5,174 +5,48 @@ import (
 	"strings"
 )
 
-// LogoSVG returns the authentic embedded inline SVG string for payment brands,
-// merchant brand badges, and Lucide UI icons.
-// Official brand marks come from the embedded files in checkoutui/assets/logos;
-// the hand-drawn marks below remain as the fallback layer for anything not
-// covered by a file (UI icons, the merchant badge, Indomaret, ...).
+// LogoSVG returns the embedded inline SVG string for payment brands,
+// bank badges, merchant avatars, and Lucide vector UI icons.
+// All SVGs are self-contained vector assets with zero external CDN dependencies.
 func LogoSVG(name string) template.HTML {
-	if h, ok := embeddedLogo(name); ok {
-		return h
-	}
-	switch strings.ToLower(strings.TrimSpace(name)) {
+	key := strings.ToLower(strings.TrimSpace(name))
+	key = strings.TrimSuffix(key, " virtual account")
+	key = strings.TrimSuffix(key, " va")
+	key = strings.TrimPrefix(key, "bank ")
+	key = strings.TrimPrefix(key, "bank_")
 
-	// --- Merchant Store / PayRouter Brand Header ---
-	case "store", "merchant", "brand_avatar":
-		return template.HTML(`<svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Merchant">
-			<rect width="32" height="32" rx="8" fill="#2563EB"/>
-			<path d="M7 11L9 6H23L25 11" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-			<path d="M7 11C7 12.6569 8.34315 14 10 14C11.6569 14 13 12.6569 13 11C13 12.6569 14.3431 14 16 14C17.6569 14 19 12.6569 19 11C19 12.6569 20.3431 14 22 14C23.6569 14 25 12.6569 25 11" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-			<path d="M8 14V24C8 25.1046 8.89543 26 10 26H22C23.1046 26 24 25.1046 24 24V14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-			<path d="M13 26V19H19V26" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-		</svg>`)
-
-	case "payrouter":
-		return template.HTML(`<svg viewBox="0 0 120 32" width="100" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PayRouter">
-			<rect width="32" height="32" rx="8" fill="#2563EB"/>
-			<path d="M10 16L16 10L22 16L16 22Z" fill="#fff"/>
-			<circle cx="16" cy="16" r="3" fill="#2563EB"/>
-			<text x="38" y="22" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="16" fill="currentColor" letter-spacing="-0.5">PayRouter</text>
-		</svg>`)
-
-	// --- Indonesian Payment Channels (Official Brand Marks) ---
-
-	case "qris", "id_qris":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="80" height="28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="QRIS">
-			<rect width="100" height="36" rx="6" fill="#EE3124"/>
-			<g fill="#ffffff">
-				<!-- QR Matrix Marks -->
-				<rect x="8" y="8" width="9" height="9" rx="1"/>
-				<rect x="10" y="10" width="5" height="5" fill="#EE3124"/>
-				<rect x="11.5" y="11.5" width="2" height="2" fill="#ffffff"/>
-				
-				<rect x="20" y="8" width="9" height="9" rx="1"/>
-				<rect x="22" y="10" width="5" height="5" fill="#EE3124"/>
-				<rect x="23.5" y="11.5" width="2" height="2" fill="#ffffff"/>
-
-				<rect x="8" y="19" width="9" height="9" rx="1"/>
-				<rect x="10" y="21" width="5" height="5" fill="#EE3124"/>
-				<rect x="11.5" y="22.5" width="2" height="2" fill="#ffffff"/>
-				
-				<rect x="20" y="19" width="4" height="4"/>
-				<rect x="25" y="24" width="4" height="4"/>
-				
-				<!-- QRIS Typography -->
-				<path d="M36 18c0-4.5 3-7.5 7.5-7.5s7.5 3 7.5 7.5c0 3.2-1.5 5.5-4 6.7l4 5.3h-4.2l-3.3-4.5h-2.5V28H36V18zm7.5-4c-2.3 0-3.8 1.6-3.8 4s1.5 4 3.8 4 3.8-1.6 3.8-4-1.5-4-3.8-4z"/>
-				<path d="M54 10.5h7.2c3.5 0 5.8 1.8 5.8 4.7 0 2-1.2 3.5-3 4.2l3.8 8.6h-4.2l-3.2-7.5h-2.7V28H54V10.5zm7 7c1.4 0 2.4-.8 2.4-2s-1-2-2.4-2H58v4h3z"/>
-				<path d="M70 10.5h3.8V28H70V10.5z"/>
-				<path d="M78 24.5l2.4-2.8c1.5 1.5 3.3 2.5 5.3 2.5 1.7 0 2.7-.8 2.7-1.8 0-2.8-8.5-1.5-8.5-7.7 0-2.8 2.3-4.5 5.8-4.5 2.5 0 4.7.9 6.5 2.5l-2.2 3c-1.4-1.2-2.8-1.8-4.3-1.8-1.5 0-2.3.7-2.3 1.5 0 2.7 8.5 1.4 8.5 7.7 0 3-2.4 4.7-6.2 4.7-2.8 0-5.5-1.2-7.7-3.3z"/>
-			</g>
-		</svg>`)
-
-	case "bca", "bank_bca":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BCA">
-			<rect width="100" height="36" rx="6" fill="#0060AF"/>
-			<g fill="#ffffff">
-				<!-- BCA Diamond Emblem -->
-				<path d="M12 18L18 10L24 18L18 26L12 18Z" fill="#fff" opacity="0.9"/>
-				<path d="M15 18L18 14L21 18L18 22L15 18Z" fill="#0060AF"/>
-				<!-- BCA Typography -->
-				<path d="M34 11h9c3.3 0 5.5 1.6 5.5 4.3 0 1.6-.9 2.9-2.3 3.5 1.9.6 3.1 2.1 3.1 4 0 3-2.4 4.7-6 4.7H34V11zm8.2 6.5c1.4 0 2.3-.7 2.3-1.8 0-1.2-.9-1.8-2.3-1.8H37.8v3.6h4.4zm.6 7.2c1.6 0 2.6-.8 2.6-2 0-1.3-1-2.1-2.6-2.1H37.8v4.1h5z"/>
-				<path d="M64 12.8c-1.5-1.2-3.4-1.8-5.5-1.8-5 0-8.5 3.5-8.5 8.5s3.5 8.5 8.5 8.5c2.2 0 4.2-.7 5.7-2l-2-2.8c-1.1.9-2.3 1.4-3.7 1.4-3 0-4.9-2-4.9-5.1s1.9-5.1 4.9-5.1c1.3 0 2.5.5 3.5 1.3l2-2.9z"/>
-				<path d="M72 27.5h-4l6.8-16.5h4.8l6.8 16.5h-4.2l-1.5-4h-7.2l-1.4 4zm6.8-12.8l-2.4 6h4.8l-2.4-6z"/>
-			</g>
-		</svg>`)
-
-	case "mandiri", "bank_mandiri":
-		return template.HTML(`<svg viewBox="0 0 110 36" width="80" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Mandiri">
-			<rect width="110" height="36" rx="6" fill="#003D79"/>
-			<!-- Mandiri Golden Ribbon -->
-			<path d="M10 20C15 13 22 10 28 10C32 10 35 12 37 15C33 16 30 18 27 21C22 25 15 27 10 20Z" fill="#F5A800"/>
-			<!-- Mandiri Clean Text -->
-			<text x="68" y="24" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="16" fill="#ffffff" letter-spacing="-0.5">mandiri</text>
-		</svg>`)
-
-	case "bni", "bank_bni":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BNI">
-			<rect width="100" height="36" rx="6" fill="#005E6A"/>
-			<!-- BNI Orange Sun Ring -->
-			<circle cx="20" cy="18" r="8" fill="#F15A24"/>
-			<circle cx="20" cy="18" r="4.5" fill="#005E6A"/>
-			<!-- BNI Bold Text -->
-			<text x="58" y="25" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="20" fill="#ffffff" letter-spacing="1">BNI</text>
-		</svg>`)
-
-	case "bri", "bank_bri":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BRI">
-			<rect width="100" height="36" rx="6" fill="#00529C"/>
-			<!-- BRI Dual Color Mark -->
-			<path d="M12 11h8c3.5 0 5.5 1.5 5.5 4 0 1.6-1 2.8-2.5 3.3 2 .5 3.2 1.8 3.2 3.8 0 2.8-2.2 4.4-5.8 4.4H12V11z" fill="#F37024"/>
-			<text x="60" y="25" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="20" fill="#ffffff" letter-spacing="1">BRI</text>
-		</svg>`)
-
-	case "permata", "bank_permata":
-		return template.HTML(`<svg viewBox="0 0 110 36" width="80" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Permata">
-			<rect width="110" height="36" rx="6" fill="#00828A"/>
-			<!-- Permata Green Diamond Jewel -->
-			<polygon points="18,9 26,18 18,27 10,18" fill="#78BE20"/>
-			<polygon points="18,13 22,18 18,23 14,18" fill="#ffffff" opacity="0.4"/>
-			<!-- Permata Text -->
-			<text x="65" y="24" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="15" fill="#ffffff">Permata</text>
-		</svg>`)
-
-	case "gopay", "ewallet_gopay":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="GoPay">
-			<rect width="100" height="36" rx="6" fill="#00AED6"/>
-			<circle cx="20" cy="18" r="6.5" fill="#ffffff"/>
-			<circle cx="20" cy="18" r="3.2" fill="#00AED6"/>
-			<text x="56" y="24" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="16" fill="#ffffff">gopay</text>
-		</svg>`)
-
-	case "shopeepay", "ewallet_shopeepay":
-		return template.HTML(`<svg viewBox="0 0 115 36" width="85" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="ShopeePay">
-			<rect width="115" height="36" rx="6" fill="#EE4D2D"/>
-			<!-- Shopee Bag -->
-			<path d="M16 13c0-2.2 1.8-4 4-4s4 1.8 4 4v1h-8v-1z" stroke="#fff" stroke-width="1.8"/>
-			<rect x="13" y="14" width="14" height="13" rx="2" fill="#fff"/>
-			<path d="M20 17c-1.5 0-2.5.7-2.5 1.8 0 2 3.5 1.5 3.5 3.2 0 .8-.8 1.4-1.8 1.4-1.2 0-2-.5-2.5-1.2" stroke="#EE4D2D" stroke-width="1.6" stroke-linecap="round"/>
-			<text x="68" y="23" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="14" fill="#ffffff">ShopeePay</text>
-		</svg>`)
-
-	case "dana", "ewallet_dana":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="DANA">
-			<rect width="100" height="36" rx="6" fill="#118EEA"/>
-			<text x="50" y="25" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="20" fill="#ffffff" letter-spacing="1">DANA</text>
-		</svg>`)
-
-	case "ovo", "ewallet_ovo":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OVO">
-			<rect width="100" height="36" rx="6" fill="#4C3494"/>
-			<text x="50" y="25" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="20" fill="#ffffff" letter-spacing="2">OVO</text>
-		</svg>`)
-
-	case "alfamart", "id_retail", "retail_outlet":
-		return template.HTML(`<svg viewBox="0 0 110 36" width="80" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Alfamart">
-			<rect width="110" height="36" rx="6" fill="#ED1C24"/>
-			<text x="55" y="24" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="16" fill="#ffffff">Alfamart</text>
-		</svg>`)
-
-	case "indomaret":
-		return template.HTML(`<svg viewBox="0 0 110 36" width="80" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Indomaret">
-			<rect width="110" height="36" rx="6" fill="#005BAC"/>
-			<text x="55" y="24" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="16" fill="#ffffff">Indomaret</text>
-		</svg>`)
-
-	case "card", "credit_card", "id_card":
-		return template.HTML(`<svg viewBox="0 0 100 36" width="75" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Card">
-			<rect width="100" height="36" rx="6" fill="#1A1F36"/>
-			<circle cx="42" cy="18" r="9" fill="#EB001B" opacity="0.9"/>
-			<circle cx="58" cy="18" r="9" fill="#F79E1B" opacity="0.9"/>
-		</svg>`)
+	switch key {
 
 	// --- Lucide Vector UI Icons (Stroke-width: 2, currentColor) ---
-	case "timer":
-		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>`)
+	case "clock", "timer":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`)
 
-	case "alert", "warning", "triangle-alert":
-		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`)
+	case "chevron-left", "chevron_left":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m15 18-6-6 6-6"/></svg>`)
 
-	case "lock", "shield", "security":
-		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`)
+	case "chevron-right", "chevron_right", "chevron":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m9 18 6-6-6-6"/></svg>`)
+
+	case "chevron-down", "chevron_down":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m6 9 6 6 6-6"/></svg>`)
+
+	case "chevrons-up-down", "chevrons_up_down":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>`)
+
+	case "x", "close":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`)
+
+	case "alert-circle", "alert_circle", "alert", "warning", "triangle-alert":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`)
+
+	case "download":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`)
+
+	case "check-circle-2", "check_circle_2", "check-circle":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`)
+
+	case "info":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`)
 
 	case "copy":
 		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`)
@@ -180,16 +54,204 @@ func LogoSVG(name string) template.HTML {
 	case "check":
 		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><polyline points="20 6 9 17 4 12"/></svg>`)
 
-	case "arrow-left":
-		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`)
+	case "building-2", "building_2", "building":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>`)
 
-	case "chevron", "chevron-right":
-		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="m9 18 6-6-6-6"/></svg>`)
+	case "search":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`)
+
+	case "credit-card", "credit_card", "card", "id_card":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>`)
+
+	case "shield-check", "shield_check", "shield", "security":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>`)
+
+	case "lock":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`)
+
+	case "smartphone", "phone":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>`)
+
+	case "wallet":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>`)
+
+	case "globe":
+		return template.HTML(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`)
+
+	case "merchant", "store":
+		return template.HTML(`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>`)
+
+	// --- GPN (Gerbang Pembayaran Nasional) Logo ---
+	case "gpn":
+		return template.HTML(`<svg viewBox="0 0 64 24" width="44" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="GPN">
+			<path d="M12 3L2 12L12 21L22 12L12 3Z" fill="#ED1C24"/>
+			<path d="M12 7L6 12L12 17L18 12L12 7Z" fill="#fff"/>
+			<text x="26" y="16" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="11" fill="#003D79" letter-spacing="0.5">GPN</text>
+		</svg>`)
+
+	// --- QRIS Official Vector Mark ---
+	case "qris", "id_qris":
+		return template.HTML(`<svg viewBox="0 0 72 24" width="52" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="QRIS">
+			<rect width="72" height="24" rx="4" fill="#EE3124"/>
+			<g fill="#ffffff">
+				<rect x="6" y="5" width="5" height="5" rx="0.5"/>
+				<rect x="7" y="6" width="3" height="3" fill="#EE3124"/>
+				<rect x="8" y="7" width="1" height="1" fill="#ffffff"/>
+				
+				<rect x="13" y="5" width="5" height="5" rx="0.5"/>
+				<rect x="14" y="6" width="3" height="3" fill="#EE3124"/>
+				<rect x="15" y="7" width="1" height="1" fill="#ffffff"/>
+
+				<rect x="6" y="14" width="5" height="5" rx="0.5"/>
+				<rect x="7" y="15" width="3" height="3" fill="#EE3124"/>
+				<rect x="8" y="16" width="1" height="1" fill="#ffffff"/>
+				
+				<text x="22" y="17" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="12" fill="#ffffff" letter-spacing="1">QRIS</text>
+			</g>
+		</svg>`)
+
+	// --- Card Networks ---
+	case "visa":
+		return template.HTML(`<svg viewBox="0 0 40 24" width="36" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="VISA">
+			<text x="20" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#1A1F71" font-style="italic" letter-spacing="0.5">VISA</text>
+		</svg>`)
+
+	case "mastercard", "mc":
+		return template.HTML(`<svg viewBox="0 0 40 24" width="36" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Mastercard">
+			<circle cx="15" cy="12" r="8" fill="#EB001B"/>
+			<circle cx="25" cy="12" r="8" fill="#F79E1B" opacity="0.88"/>
+		</svg>`)
+
+	case "jcb":
+		return template.HTML(`<svg viewBox="0 0 40 24" width="36" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="JCB">
+			<rect x="4" y="3" width="10" height="18" rx="2" fill="#0066B2"/>
+			<rect x="15" y="3" width="10" height="18" rx="2" fill="#EE1C25"/>
+			<rect x="26" y="3" width="10" height="18" rx="2" fill="#009944"/>
+			<text x="9" y="16" font-family="sans-serif" font-weight="900" font-size="9" fill="#fff" text-anchor="middle">J</text>
+			<text x="20" y="16" font-family="sans-serif" font-weight="900" font-size="9" fill="#fff" text-anchor="middle">C</text>
+			<text x="31" y="16" font-family="sans-serif" font-weight="900" font-size="9" fill="#fff" text-anchor="middle">B</text>
+		</svg>`)
+
+	case "amex", "american_express":
+		return template.HTML(`<svg viewBox="0 0 40 24" width="36" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="AMEX">
+			<rect width="40" height="24" rx="2" fill="#006FCF"/>
+			<text x="20" y="16" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="9" fill="#ffffff" letter-spacing="0.5">AMEX</text>
+		</svg>`)
+
+	// --- Authentic Indonesian Bank Vector Logos ---
+	case "bca":
+		return template.HTML(`<svg viewBox="0 0 50 24" width="38" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BCA">
+			<path d="M9 4L4 12L9 20L14 12L9 4Z" fill="#00529C"/>
+			<text x="20" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#00529C" letter-spacing="0.5">BCA</text>
+		</svg>`)
+
+	case "mandiri":
+		return template.HTML(`<svg viewBox="0 0 65 24" width="46" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Mandiri">
+			<text x="2" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="11" fill="#002D62">mandırı</text>
+			<path d="M48 6C54 6 58 10 63 15C59 13 54 11 48 11C44 11 40 12 37 13C41 9 44 6 48 6Z" fill="#F5A800"/>
+		</svg>`)
+
+	case "bni":
+		return template.HTML(`<svg viewBox="0 0 52 24" width="40" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BNI">
+			<text x="2" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#005E6A" letter-spacing="0.5">BNI</text>
+			<circle cx="43" cy="12" r="5" fill="#F15A24"/>
+		</svg>`)
+
+	case "bri":
+		return template.HTML(`<svg viewBox="0 0 50 24" width="38" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BRI">
+			<text x="2" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#00529C" letter-spacing="0.5">BRI</text>
+			<rect x="36" y="5" width="10" height="14" rx="2" fill="#F37024"/>
+		</svg>`)
+
+	case "permata":
+		return template.HTML(`<svg viewBox="0 0 70 24" width="48" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Permata">
+			<polygon points="10,4 16,12 10,20 4,12" fill="#78BE20"/>
+			<polygon points="10,4 16,12 10,12" fill="#00857C"/>
+			<text x="22" y="16" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="800" font-size="10" fill="#00857C">Permata</text>
+		</svg>`)
+
+	case "cimb", "cimb_niaga":
+		return template.HTML(`<svg viewBox="0 0 54 24" width="42" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CIMB">
+			<rect x="2" y="4" width="8" height="16" fill="#ED1C24"/>
+			<text x="14" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="12" fill="#780116">CIMB</text>
+		</svg>`)
+
+	case "bsi":
+		return template.HTML(`<svg viewBox="0 0 50 24" width="38" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BSI">
+			<circle cx="8" cy="12" r="5" fill="#00A39D"/>
+			<text x="16" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="12" fill="#00A39D">BSI</text>
+		</svg>`)
+
+	case "btn":
+		return template.HTML(`<svg viewBox="0 0 50 24" width="38" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BTN">
+			<text x="2" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#002D62">BTN</text>
+			<rect x="36" y="6" width="8" height="12" fill="#ED1C24"/>
+		</svg>`)
+
+	case "danamon":
+		return template.HTML(`<svg viewBox="0 0 65 24" width="46" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Danamon">
+			<rect x="2" y="5" width="8" height="14" rx="1" fill="#FF7900"/>
+			<text x="14" y="16" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="800" font-size="10" fill="#003A70">Danamon</text>
+		</svg>`)
+
+	case "maybank":
+		return template.HTML(`<svg viewBox="0 0 65 24" width="46" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Maybank">
+			<circle cx="8" cy="12" r="5" fill="#FFC800"/>
+			<text x="16" y="16" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="10" fill="#000000">Maybank</text>
+		</svg>`)
+
+	case "ocbc":
+		return template.HTML(`<svg viewBox="0 0 54 24" width="42" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OCBC">
+			<circle cx="8" cy="12" r="5" fill="#ED1C24"/>
+			<text x="16" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="12" fill="#ED1C24">OCBC</text>
+		</svg>`)
+
+	case "mega":
+		return template.HTML(`<svg viewBox="0 0 54 24" width="42" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="MEGA">
+			<text x="4" y="17" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="12" fill="#F37024">MEGA</text>
+		</svg>`)
+
+	// --- E-Wallets Vector Marks ---
+	case "gopay", "ewallet_gopay":
+		return template.HTML(`<svg viewBox="0 0 56 24" width="44" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="GoPay">
+			<circle cx="8" cy="12" r="5" fill="#00AED6"/>
+			<circle cx="8" cy="12" r="2.5" fill="#fff"/>
+			<text x="16" y="16" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="800" font-size="10" fill="#00AED6">gopay</text>
+		</svg>`)
+
+	case "ovo", "ewallet_ovo":
+		return template.HTML(`<svg viewBox="0 0 46 24" width="38" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OVO">
+			<text x="23" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#4C2A86" letter-spacing="1">OVO</text>
+		</svg>`)
+
+	case "shopee", "shopeepay", "ewallet_shopeepay":
+		return template.HTML(`<svg viewBox="0 0 70 24" width="50" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="ShopeePay">
+			<path d="M8 6C6 6 4 8 4 10V18C4 19 5 20 6 20H14C15 20 16 19 16 18V10C16 8 14 6 12 6H8ZM9 4C9 3.5 9.5 3 10 3C10.5 3 11 3.5 11 4V6H9V4Z" fill="#EE4D2D"/>
+			<text x="19" y="16" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="800" font-size="9" fill="#EE4D2D">ShopeePay</text>
+		</svg>`)
+
+	case "dana", "ewallet_dana":
+		return template.HTML(`<svg viewBox="0 0 52 24" width="40" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="DANA">
+			<text x="26" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="13" fill="#118EEA" letter-spacing="0.5">DANA</text>
+		</svg>`)
+
+	case "linkaja", "ewallet_linkaja":
+		return template.HTML(`<svg viewBox="0 0 60 24" width="46" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="LinkAja">
+			<rect x="2" y="5" width="14" height="14" rx="3" fill="#ED1C24"/>
+			<text x="20" y="16" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="800" font-size="9" fill="#ED1C24">LinkAja!</text>
+		</svg>`)
+
+	// --- Retail Outlets ---
+	case "alfamart", "id_retail", "retail_outlet":
+		return template.HTML(`<svg viewBox="0 0 65 24" width="48" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Alfamart">
+			<rect width="65" height="24" rx="3" fill="#ED1C24"/>
+			<text x="32" y="16" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-weight="900" font-size="10" fill="#ffffff">Alfamart</text>
+		</svg>`)
+
+	case "indomaret":
+		return template.HTML(`<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="Indomaret">`)
 
 	default:
-		return template.HTML(`<svg viewBox="0 0 36 36" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<rect width="36" height="36" rx="6" fill="#E3E6EA"/>
-			<path d="M10 18h16M18 10v16" stroke="#666E7A" stroke-width="2.5" stroke-linecap="round"/>
-		</svg>`)
+		return template.HTML(`<span style="font-size:0.625rem;font-weight:800;color:var(--fg)">` + template.HTMLEscapeString(strings.ToUpper(name)) + `</span>`)
 	}
 }

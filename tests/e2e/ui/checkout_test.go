@@ -43,7 +43,7 @@ func TestCheckout_PickerRenders(t *testing.T) {
 	expect.Locator(page.Locator(".total")).ToHaveText(playwright.String("Rp 1.250.000"))
 	expect.Locator(page.Locator(".desc")).ToHaveText(playwright.String("Paket Pro"))
 	expect.Locator(qrisButton(page)).ToBeVisible()
-	expect.Locator(vaBankButton(page, "bni")).ToBeVisible()
+	expect.Locator(page.Locator("#open-va-list")).ToBeVisible()
 }
 
 // TestCheckout_QRISFlow: the core hosted-checkout promise — pick QRIS, get a
@@ -103,6 +103,9 @@ func TestCheckout_VirtualAccountFlow(t *testing.T) {
 
 	if _, err := page.Goto(env.checkoutURL(id)); err != nil {
 		t.Fatalf("goto: %v", err)
+	}
+	if err := page.Locator("#open-va-list").Click(); err != nil {
+		t.Fatalf("open VA list: %v", err)
 	}
 	if err := vaBankButton(page, "bni").Click(); err != nil {
 		t.Fatalf("click BNI VA: %v", err)
